@@ -7,7 +7,8 @@ from rich. table import Table
 from models.schemas import LegalDocument
 from graphs.legal_graph import LegalKnowledgeGraphWorkflow
 from database.memgraph_client import MemgraphClient
-from llm.gemini_client import get_llm
+from llm.gemini_client import get_llm as gemini_llm
+from llm.llama_client import get_llm as opensource_llm
 
 # 환경 변수 로드
 load_dotenv()
@@ -39,7 +40,7 @@ def test_llm_connection():
         console.print("\n🔍 Gemini API 연결 테스트 중...", style="bold blue")
     
     try:
-        llm = get_llm()
+        llm = opensource_llm()
         result = llm.invoke("안녕하세요.  간단히 인사해주세요.")
         console.print(f"✅ LLM 응답: {result[: 100]}.. .", style="green")
         return True
