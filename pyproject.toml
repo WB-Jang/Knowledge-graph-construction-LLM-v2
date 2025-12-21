@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "legal-knowledge-graph-v2"
 version = "0.1.0"
-description = "한국어 법률 문서를 지식그래프로 변환하는 LLM 기반 시스템 (GPU & Memgraph)"
+description = "한국어 법률 문서를 지식그래프로 변환하는 LLM 기반 시스템 (GPU & Neo4j)"
 authors = ["WB-Jang <eeariorie2@google.com>"]
 readme = "README.md"
 packages = [{include = "src"}]
@@ -9,26 +9,28 @@ packages = [{include = "src"}]
 [tool.poetry. dependencies]
 python = "^3.11"
 
-# LangChain 코어
-langchain = "^0.1.0"
-langchain-community = "^0.0.20"
-langchain-google-genai = "^1.0.0"
-langgraph = "^0.0.20"
+# LangChain 코어 (최신 버전으로 업데이트)
+langchain = "^0.3.0"
+langchain-community = "^0.3.0"
+langchain-google-genai = "^2.0.0"
+langgraph = "^0.2.0"
+
+# Google Gemini API (langchain-google-genai와 호환되는 버전)
+google-generativeai = "^0.8.0"
+
+# LangChain Core (명시적으로 추가)
+langchain-core = "^0.3.0"
 
 # GPU 지원
 torch = {version = "^2.1.0", source = "pytorch-gpu"}
 torchvision = {version = "^0.16.0", source = "pytorch-gpu"}
 
-# Google Gemini API
-google-generativeai = "^0.3.0"
-
-# LLM 관련 (llama-cpp용)
+# LLM 관련
 httpx = "^0.26.0"
 requests = "^2.31.0"
 
-# 그래프 데이터베이스 (Memgraph)
+# 그래프 데이터베이스 (Neo4j)
 neo4j = "^5.14.0"
-gqlalchemy = "^1.4.0"
 
 # 데이터 처리
 pydantic = "^2.5.0"
@@ -71,7 +73,7 @@ jupyter = "^1.0.0"
 ipykernel = "^6.28.0"
 pytest-cov = "^4.1.0"
 
-[tool.black]
+[tool. black]
 line-length = 100
 target-version = ['py311']
 
