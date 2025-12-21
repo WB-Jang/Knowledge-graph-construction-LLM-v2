@@ -1,0 +1,99 @@
+version: '3.8'
+
+services:
+  legal-kg: 
+    build:   . 
+    container_name: legal-knowledge-graph-v2
+    volumes:
+      - . :/app
+      - legal-kg-cache:/home/appuser/.cache
+      - legal-models:/app/models
+    environment: 
+      # Google Gemini API 설정
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      
+      # LLM 설정
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.0}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-8192}
+      
+      # 로컬 LLM 사용 여부 (선택사항)
+      - USE_LOCAL_LLM=${USE_LOCAL_LLM:-false}
+      - LLAMA_CPP_API_URL=${LLAMA_CPP_API_URL:-http://host.docker.internal:8000}
+      - LLAMA_CPP_API_KEY=${LLAMA_CPP_API_KEY:-}
+      
+      # LangChain 추적 (선택사항)
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      
+      # Memgraph 설정
+      - MEMGRAPH_HOST=memgraph
+      - MEMGRAPH_PORT=7687
+      - MEMGRAPH_USERNAME=${MEMGRAPH_USERNAME}
+      - MEMGRAPH_PASSWORD=${MEMGRAPH_PASSWORD}
+      
+      # GPU 설정
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      
+    ports:
+      - "8888:8888"   # Jupyter (선택사항)
+      - "8501:8501"   # Streamlit (선택사항)
+    
+    command: tail -f /dev/null
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    
+    depends_on:
+      memgraph:
+        condition: service_healthy
+    
+  memgraph:
+    image:  memgraph/memgraph-platform:latest
+    container_name:  legal-memgraph
+    ports:  
+      - "7687:7687"   # Bolt protocol
+      - "3000:3000"   # Memgraph Lab UI
+      - "7444:7444"   # Memgraph Lab secure
+    
+    volumes:
+      - memgraph-data:/var/lib/memgraph
+      - memgraph-log:/var/log/memgraph
+      - memgraph-etc:/etc/memgraph
+    
+    environment:
+      - MEMGRAPH_LOG_LEVEL=${MEMGRAPH_LOG_LEVEL:-WARNING}
+    
+    command: 
+      - "--log-level=WARNING"
+      - "--also-log-to-stderr"
+      - "--memory-limit=4096"
+    
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'RETURN 1;' | mgconsole --host 127.0.0.1 --port 7687 || exit 1"]
+      interval:  10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  legal-kg-cache:
+    driver: local
+  legal-models:
+    driver: local
+  memgraph-data:
+    driver: local
+  memgraph-log: 
+    driver: local
+  memgraph-etc:
+    driver: local
