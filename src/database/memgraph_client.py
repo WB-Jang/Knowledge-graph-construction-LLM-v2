@@ -23,14 +23,14 @@ class MemgraphClient:
         # GQLAlchemy 연결 (Memgraph 전용 기능)
         try:
             self.db = Memgraph(host=self.host, port=self.port)
-            print(f"✅ Memgraph 연결 성공: {self. host}:{self.port}")
+            print(f"✅ Memgraph 연결 성공: {self.host}:{self.port}")
         except Exception as e:
             print(f"⚠️ GQLAlchemy 연결 실패, Neo4j 드라이버 사용: {e}")
             self.db = None
         
         # Neo4j 드라이버 (Bolt 프로토콜 - Memgraph 호환)
         uri = f"bolt://{self.host}:{self.port}"
-        auth = (self.username, self. password) if self.username else None
+        auth = (self.username, self.password) if self.username else None
         self.driver = GraphDatabase.driver(uri, auth=auth)
     
     def clear_database(self):
@@ -163,5 +163,5 @@ class MemgraphClient:
     def close(self):
         """연결 종료"""
         if self.driver:
-            self. driver.close()
+            self.driver.close()
         print("👋 Memgraph 연결 종료")

@@ -1,7 +1,7 @@
-from langchain. prompts import ChatPromptTemplate
-from langchain.output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 from typing import List
-from .. models.schemas import LegalEntity
+from ..models.schemas import LegalEntity
 from ..llm.gemini_client import get_llm as gemini_llm
 from ..llm.llama_client import get_llm as opensource_llm
 
@@ -38,7 +38,7 @@ class EntityExtractionChain:
         try:
             result = self.chain.invoke({
                 "text": text,
-                "format_instructions": self. parser.get_format_instructions()
+                "format_instructions": self.parser.get_format_instructions()
             })
             return result
         except Exception as e:  

@@ -2,7 +2,7 @@ import os
 import sys
 from dotenv import load_dotenv
 from rich.console import Console
-from rich. table import Table
+from rich.table import Table
 
 from models.schemas import LegalDocument
 from graphs.legal_graph import LegalKnowledgeGraphWorkflow
@@ -22,8 +22,8 @@ def check_gpu():
         import torch
         if torch.cuda.is_available():
             console.print(f"✅ GPU 사용 가능:  {torch.cuda.get_device_name(0)}", style="bold green")
-            console.print(f"   CUDA 버전: {torch. version.cuda}")
-            console.print(f"   GPU 메모리: {torch. cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+            console.print(f"   CUDA 버전: {torch.version.cuda}")
+            console.print(f"   GPU 메모리: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
         else:
             console.print("⚠️ GPU를 사용할 수 없습니다.  CPU 모드로 실행됩니다.", style="bold yellow")
     except ImportError:  
@@ -35,26 +35,26 @@ def test_llm_connection():
     use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
     
     if use_local:
-        console.print("\n🔍 로컬 LLM 연결 테스트 중.. .", style="bold blue")
+        console.print("\n🔍 로컬 LLM 연결 테스트 중...", style="bold blue")
     else:
         console.print("\n🔍 Gemini API 연결 테스트 중...", style="bold blue")
     
     try:
         llm = opensource_llm()
-        result = llm.invoke("안녕하세요.  간단히 인사해주세요.")
-        console.print(f"✅ LLM 응답: {result[: 100]}.. .", style="green")
+        result = llm.invoke("안녕하세요. 간단히 인사해주세요.")
+        console.print(f"✅ LLM 응답: {result[:100]}...", style="green")
         return True
     except Exception as e:  
         console.print(f"❌ LLM 연결 실패: {e}", style="bold red")
         
         if not use_local:
-            console. print("\n⚠️ Gemini API 설정을 확인하세요:", style="bold yellow")
+            console.print("\n⚠️ Gemini API 설정을 확인하세요:", style="bold yellow")
             console.print(f"   GOOGLE_API_KEY: {'설정됨' if os.getenv('GOOGLE_API_KEY') else '미설정'}")
             console.print("\n💡 Google AI Studio에서 API 키 발급:")
             console.print("   https://makersuite.google.com/app/apikey")
         else:
             console.print("\n⚠️ llama-cpp API 설정을 확인하세요:", style="bold yellow")
-            console. print(f"   API URL: {os.getenv('LLAMA_CPP_API_URL', 'Not set')}")
+            console.print(f"   API URL: {os.getenv('LLAMA_CPP_API_URL', 'Not set')}")
         
         return False
 
@@ -82,14 +82,14 @@ def main():
 1. "개인정보"란 살아 있는 개인에 관한 정보로서 성명, 주민등록번호 및 영상 등을 통하여 개인을 알아볼 수 있는 정보를 말한다.  
 
 제3조(개인정보 보호 원칙) ① 개인정보처리자는 개인정보의 처리 목적을 명확하게 하여야 하고 그 목적에 필요한 범위에서 최소한의 개인정보만을 적법하고 정당하게 수집하여야 한다.  
-        """. strip()
+        """.strip()
     )
     
     # 워크플로우 실행
     console.print("\n🚀 법률 지식 그래프 생성 시작...", style="bold green")
     workflow = LegalKnowledgeGraphWorkflow()
     
-    with console.status("[bold green]처리 중.. .", spinner="dots"):
+    with console.status("[bold green]처리 중...", spinner="dots"):
         result = workflow.process(sample_document)
     
     # 결과 테이블 생성
@@ -118,7 +118,7 @@ def main():
     
     for triplet in result.triplets[:10]:   # 상위 10개만
         relation_table.add_row(
-            triplet. subject[: 20],
+            triplet.subject[:20],
             triplet.relation,
             triplet.object[:20],
             f"{triplet.confidence:.2f}"

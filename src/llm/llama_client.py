@@ -1,8 +1,8 @@
 import os
 import httpx
 from typing import Optional, Dict, Any, List
-from langchain_core.language_models. llms import LLM
-from langchain_core.callbacks. manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLM
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from pydantic import Field
 
 
@@ -53,7 +53,7 @@ class LlamaCppClient(LLM):
                 
                 # OpenAI 형식 응답 파싱
                 if "choices" in result and len(result["choices"]) > 0:
-                    return result["choices"][0]["text"]. strip()
+                    return result["choices"][0]["text"].strip()
                 else:
                     return result.get("content", "").strip()
                     
@@ -75,9 +75,9 @@ class LlamaCppClient(LLM):
             headers["Authorization"] = f"Bearer {self.api_key}"
         
         payload = {
-            "model": self. model_name,
+            "model": self.model_name,
             "prompt": prompt,
-            "temperature":  kwargs.get("temperature", self. temperature),
+            "temperature": kwargs.get("temperature", self.temperature),
             "max_tokens": kwargs.get("max_tokens", self.max_tokens),
             "stop": stop or [],
         }
@@ -108,7 +108,7 @@ class LlamaCppClient(LLM):
         return {
             "api_url": self.api_url,
             "model_name": self.model_name,
-            "temperature": self. temperature,
+            "temperature": self.temperature,
             "max_tokens": self.max_tokens,
         }
 
@@ -117,9 +117,9 @@ class LlamaCppChatClient(LLM):
     """외부 llama-cpp Chat API 클라이언트 (ChatCompletion 지원)"""
     
     api_url: str = Field(default_factory=lambda: os.getenv("LLAMA_CPP_API_URL", "http://localhost:8000"))
-    api_key: Optional[str] = Field(default_factory=lambda: os. getenv("LLAMA_CPP_API_KEY"))
-    model_name: str = Field(default_factory=lambda: os. getenv("LLM_MODEL_NAME", "default"))
-    temperature: float = Field(default_factory=lambda: float(os. getenv("LLM_TEMPERATURE", "0.0")))
+    api_key: Optional[str] = Field(default_factory=lambda: os.getenv("LLAMA_CPP_API_KEY"))
+    model_name: str = Field(default_factory=lambda: os.getenv("LLM_MODEL_NAME", "default"))
+    temperature: float = Field(default_factory=lambda: float(os.getenv("LLM_TEMPERATURE", "0.0")))
     max_tokens: int = Field(default_factory=lambda:  int(os.getenv("LLM_MAX_TOKENS", "2048")))
     timeout: int = Field(default_factory=lambda: int(os.getenv("LLM_TIMEOUT", "120")))
     
@@ -152,7 +152,7 @@ class LlamaCppChatClient(LLM):
         
         try:
             with httpx.Client(timeout=self.timeout) as client:
-                response = client. post(
+                response = client.post(
                     f"{self.api_url}/v1/chat/completions",
                     json=payload,
                     headers=headers

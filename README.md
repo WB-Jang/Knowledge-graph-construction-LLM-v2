@@ -93,10 +93,29 @@ docker exec legal-knowledge-graph check-gpu
 
 ### 4. 실행
 
+#### 예제 코드로 실행 (기본)
 ```bash
 # 컨테이너 내부에서
 poetry run python src/main.py
 ```
+
+#### PDF 파일로 실행
+```bash
+# 1. PDF 파일을 data/pdfs/ 디렉토리에 복사
+cp /path/to/your/법률문서.pdf data/pdfs/
+
+# 2. PDF 처리 스크립트 실행
+poetry run python src/process_pdf.py
+```
+
+**PDF 처리 과정:**
+1. `data/pdfs/` 디렉토리의 PDF 파일 목록이 표시됩니다
+2. 처리할 파일 번호를 선택합니다
+3. PDF에서 텍스트를 자동으로 추출합니다
+4. 법률 조항을 분석하고 지식 그래프를 생성합니다
+5. Memgraph에 저장할지 선택합니다
+
+**참고:** PDF 파일은 텍스트가 포함된 파일이어야 합니다. 스캔된 이미지 PDF는 현재 지원하지 않습니다.
 
 ## 📊 Memgraph Lab
 
@@ -127,14 +146,21 @@ ORDER BY refs DESC LIMIT 10;
 ```
 ├── src/
 │   ├── llm/                # LLM 클라이언트
-│   │   └── llama_client.py
+│   │   ├── llama_client.py
+│   │   └── gemini_client.py
 │   ├── chains/             # LangChain 체인
 │   ├── graphs/             # LangGraph 워크플로우
 │   ├── database/           # Memgraph 클라이언트
 │   ├── models/             # Pydantic 스키마
-│   └── utils/              # 유틸리티
+│   ├── utils/              # 유틸리티
+│   │   ├── text_processor.py
+│   │   └── pdf_processor.py  # PDF 처리
+│   ├── main.py             # 예제 실행 스크립트
+│   └── process_pdf.py      # PDF 처리 스크립트
+├── data/
+│   └── pdfs/               # PDF 파일 저장 디렉토리
+├── tests/                  # 테스트 파일
 ├── models/                 # 로컬 LLM 모델 (마운트)
-├── data/                   # 데이터 파일
 └── Dockerfile              # GPU Docker 설정
 ```
 
