@@ -5,8 +5,8 @@ services:
     build: .
     container_name: legal-knowledge-graph-v2
     volumes: 
-      - . :/app
-      - legal-kg-cache:/home/appuser/. cache
+      # - .:/app 
+      - legal-kg-cache:/home/appuser/.cache
       - legal-models:/app/models
     environment:  
       # Google Gemini API 설정

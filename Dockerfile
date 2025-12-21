@@ -44,6 +44,9 @@ RUN python3 -m pip install --user poetry && \
 # 7. 의존성 파일 복사 (중요:  빌드 시점에 복사)
 COPY --chown=appuser:appuser pyproject.toml poetry.lock* ./
 
+# [추가] 리눅스 환경에 맞게 락 파일 초기화 (기존 락 파일 삭제)
+RUN rm -f poetry.lock
+
 # 8. Poetry 의존성 설치 (llama-cpp-python 제외)
 RUN poetry install --no-root --no-interaction || \
     (echo "❌ Poetry 설치 실패" && exit 1)
