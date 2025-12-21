@@ -51,5 +51,7 @@ Thumbs.db
 
 # Project specific
 models/
-data/
+data/*.pdf
+data/**/*.pdf
+!data/pdfs/README.md
 logs/
