@@ -5,7 +5,7 @@ from typing import List
 def split_articles(text: str) -> List[str]:
     """법령 텍스트를 조항별로 분리"""
     # 제N조, 제N조의N, 제N조제N항 패턴 매칭
-    pattern = r'제\s*\d+\s*조(? : 의\s*\d+)?(?:제\s*\d+\s*항)?'
+    pattern = r'제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?'
     
     # 조항 시작 위치 찾기
     matches = list(re.finditer(pattern, text))

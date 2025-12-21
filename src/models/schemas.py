@@ -6,9 +6,9 @@ class LegalEntity(BaseModel):
     """법률 개체"""
     article_number: str = Field(description="조항 번호")
     concept: str = Field(description="핵심 개념")
-    subject: Optional[str] = Field(description="의무 주체")
-    action: Optional[str] = Field(description="행위")
-    object: Optional[str] = Field(description="대상")
+    subject: Optional[str] = Field(default=None, description="의무 주체")
+    action: Optional[str] = Field(default=None, description="행위")
+    object: Optional[str] = Field(default=None, description="대상")
     full_text: str = Field(description="원문")
 
 class RelationType(str, Enum):

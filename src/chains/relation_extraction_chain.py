@@ -1,5 +1,5 @@
-from langchain.prompts import ChatPromptTemplate
-from langchain. output_parsers import PydanticOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
 from typing import List
 from ..models.schemas import GraphTriplet, LegalEntity
 from ..llm.gemini_client import get_llm as gemini_llm
@@ -12,9 +12,9 @@ class RelationExtractionChain:
     def __init__(self, temperature: float = 0.0):
         self.llm = opensource_llm()
         self.temperature = temperature
-        self. parser = PydanticOutputParser(pydantic_object=GraphTriplet)
+        self.parser = PydanticOutputParser(pydantic_object=GraphTriplet)
         
-        self.prompt = ChatPromptTemplate. from_messages([
+        self.prompt = ChatPromptTemplate.from_messages([
             ("system", """당신은 한국 법률 지식 그래프 전문가입니다.  
 추출된 법률 개체 정보를 바탕으로 [주체 - 관계 - 대상] 트리플을 생성합니다.  
 

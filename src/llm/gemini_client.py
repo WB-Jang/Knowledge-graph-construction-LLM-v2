@@ -1,7 +1,7 @@
 import os
 from typing import Optional, Dict, Any, List
-from langchain_core.language_models. llms import LLM
-from langchain_core.callbacks. manager import CallbackManagerForLLMRun
+from langchain_core.language_models.llms import LLM
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import Field
 import google.generativeai as genai
@@ -39,7 +39,7 @@ class GeminiClient:
     
     def invoke(self, prompt: str, **kwargs) -> str:
         """동기 호출"""
-        return self.llm. invoke(prompt, **kwargs).content
+        return self.llm.invoke(prompt, **kwargs).content
     
     async def ainvoke(self, prompt: str, **kwargs) -> str:
         """비동기 호출"""
@@ -88,7 +88,7 @@ class LlamaCppClient(LLM):
         
         try:
             with httpx.Client(timeout=self.timeout) as client:
-                response = client. post(
+                response = client.post(
                     f"{self.api_url}/v1/completions",
                     json=payload,
                     headers=headers
@@ -97,9 +97,9 @@ class LlamaCppClient(LLM):
                 result = response.json()
                 
                 if "choices" in result and len(result["choices"]) > 0:
-                    return result["choices"][0]["text"]. strip()
+                    return result["choices"][0]["text"].strip()
                 else:
-                    return result. get("content", "").strip()
+                    return result.get("content", "").strip()
                     
         except Exception as e:
             raise Exception(f"llama-cpp API 호출 실패: {str(e)}")
@@ -109,12 +109,12 @@ class LlamaCppClient(LLM):
         return {
             "api_url": self.api_url,
             "model_name": self.model_name,
-            "temperature": self. temperature,
+            "temperature": self.temperature,
             "max_tokens": self.max_tokens,
         }
 
 
-def get_llm(use_local:  bool = None):
+def get_llm(use_local: bool = None):
     """
     LLM 인스턴스 가져오기
     
