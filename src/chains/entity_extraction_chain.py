@@ -2,14 +2,14 @@ from langchain. prompts import ChatPromptTemplate
 from langchain.output_parsers import PydanticOutputParser
 from typing import List
 from .. models.schemas import LegalEntity
-from ..llm.gemini_client import get_llm
-
+from ..llm.gemini_client import get_llm as gemini_llm
+from ..llm.llama_client import get_llm as opensource_llm
 
 class EntityExtractionChain:  
     """법률 개체 추출 체인"""
     
     def __init__(self, temperature: float = 0.0):
-        self.llm = get_llm()
+        self.llm = opensource_llm()
         # Gemini는 temperature를 생성 시 지정
         self.temperature = temperature
         self.parser = PydanticOutputParser(pydantic_object=LegalEntity)
