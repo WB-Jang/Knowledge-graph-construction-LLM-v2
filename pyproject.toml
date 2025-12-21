@@ -51,6 +51,10 @@ aiofiles = "^23.2.1"
 rich = "^13.7.0"
 tqdm = "^4.66.1"
 
+# PDF 처리
+PyMuPDF = "^1.23.0"
+pypdf2 = "^3.0.0"
+
 [[tool.poetry.source]]
 name = "pytorch-gpu"
 url = "https://download.pytorch.org/whl/cu121"
