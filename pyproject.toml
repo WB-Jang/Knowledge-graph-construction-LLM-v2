@@ -1,0 +1,86 @@
+[tool.poetry]
+name = "legal-knowledge-graph-v2"
+version = "0.1.0"
+description = "한국어 법률 문서를 지식그래프로 변환하는 LLM 기반 시스템 (GPU & Memgraph)"
+authors = ["WB-Jang <eeariorie2@google.com>"]
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry. dependencies]
+python = "^3.11"
+
+# LangChain 코어
+langchain = "^0.1. 0"
+langchain-community = "^0.0.20"
+langchain-google-genai = "^1.0.0"
+langgraph = "^0.0.20"
+
+# GPU 지원
+torch = {version = "^2.1.0", source = "pytorch-gpu"}
+torchvision = {version = "^0.16.0", source = "pytorch-gpu"}
+
+# Google Gemini API
+google-generativeai = "^0.3.0"
+
+# LLM 관련 (llama-cpp용)
+httpx = "^0.26.0"
+requests = "^2.31.0"
+
+# 그래프 데이터베이스 (Memgraph)
+neo4j = "^5.14.0"
+gqlalchemy = "^1.4.0"
+
+# 데이터 처리
+pydantic = "^2.5.0"
+python-dotenv = "^1.0.0"
+networkx = "^3.2.1"
+matplotlib = "^3.8.2"
+pandas = "^2.1.4"
+numpy = "^1.26.3"
+
+# 한국어 처리
+konlpy = "^0.6.0"
+kiwipiepy = "^0.16.0"
+
+# API
+fastapi = "^0.109.0"
+uvicorn = {extras = ["standard"], version = "^0.27.0"}
+aiofiles = "^23.2.1"
+
+# 모니터링
+rich = "^13.7.0"
+tqdm = "^4.66.1"
+
+[[tool.poetry.source]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-asyncio = "^0.21.1"
+black = "^23.12.1"
+isort = "^5.13.2"
+mypy = "^1.8.0"
+flake8 = "^7.0.0"
+jupyter = "^1.0.0"
+ipykernel = "^6.28.0"
+pytest-cov = "^4.1.0"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry. core.masonry.api"
