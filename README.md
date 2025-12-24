@@ -1,4 +1,4 @@
-# Legal Knowledge Graph v2🏛️
+# Legal Knowledge Graph v2 🏛️
 ## GPU & Memgraph & Llama-cpp Edition
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WB-Jang/Knowledge-graph-construction-LLM-v2/blob/main/knowledge_graph_colab.ipynb)
