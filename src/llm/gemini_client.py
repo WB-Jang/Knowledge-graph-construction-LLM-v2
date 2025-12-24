@@ -18,7 +18,7 @@ class GeminiClient:
         max_tokens: int = None
     ):
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
-        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-09-2025")
         self.temperature = temperature if temperature is not None else float(os.getenv("LLM_TEMPERATURE", "0.0"))
         self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "2048"))
         
