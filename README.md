@@ -1,5 +1,7 @@
-# Legal Knowledge Graph v2🏛️
+# Legal Knowledge Graph v2 🏛️
 ## GPU & Memgraph & Llama-cpp Edition
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WB-Jang/Knowledge-graph-construction-LLM-v2/blob/main/knowledge_graph_colab.ipynb)
 
 한국어 법률 문서를 오픈소스 LLM과 Memgraph를 활용하여 지식그래프로 변환하는 프로젝트
 
@@ -14,6 +16,33 @@
 - **LangChain & LangGraph 워크플로우**
 
 ## 🚀 시작하기
+
+### 🌐 Google Colab에서 빠르게 시작하기 (권장)
+
+Docker나 로컬 환경 설정 없이 Google Colab에서 바로 실행할 수 있습니다!
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WB-Jang/Knowledge-graph-construction-LLM-v2/blob/main/knowledge_graph_colab.ipynb)
+
+**Colab 노트북 특징:**
+- ✅ 무료 GPU (T4) 사용 가능
+- ✅ Google Gemini API 연동 (무료 tier)
+- ✅ PDF 파일 업로드 및 처리
+- ✅ 결과 시각화 및 다운로드
+- ✅ 환경 설정 불필요
+
+**사용 방법:**
+1. 위 배지를 클릭하여 Colab 노트북 열기
+2. Google Gemini API 키 발급 ([API 키 받기](https://makersuite.google.com/app/apikey))
+3. 노트북의 셀을 순차적으로 실행
+4. 샘플 법률 텍스트 또는 PDF 파일 처리
+
+> 💡 **참고:** Colab 환경에서는 Memgraph를 사용하지 않고 메모리 기반으로 처리하며, 테스트 목적으로 처음 3개 조항만 처리합니다.
+
+---
+
+### 🐳 로컬 환경 또는 Docker에서 전체 기능 사용하기
+
+전체 기능(Memgraph, 무제한 조항 처리 등)을 사용하려면 로컬 환경이나 Docker를 사용하세요.
 
 ### 전제 조건
 
