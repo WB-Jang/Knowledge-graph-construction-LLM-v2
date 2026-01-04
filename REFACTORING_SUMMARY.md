@@ -32,6 +32,7 @@
 
 #### 변경 사항:
 - `utils.text_processor`의 `clean_text()` 함수를 사용하여 PDF에서 추출한 텍스트 정제
+- `utils.text_processor`의 `split_articles()` 함수를 사용하여 PDF 텍스트를 조항별로 파싱
 - 공통 유틸리티 함수 사용 (`check_gpu`, `test_llm_connection`, `save_to_memgraph`, `display_result_tables`)
 - 중복 코드 제거 (약 80줄 감소)
 - Memgraph 저장 시 사용자에게 기존 데이터 삭제 여부 확인
@@ -41,9 +42,13 @@
 # 이전
 content = extract_text_from_pdf(pdf_path)
 
-# 이후 (텍스트 정제 추가)
+# 이후 (텍스트 정제 및 조항 파싱 추가)
 content = extract_text_from_pdf(pdf_path)
 content = clean_text(content)
+
+# split_articles를 사용하여 조항별로 분리하고 다시 결합
+articles = split_articles(content)
+content = "\n\n".join(articles)
 ```
 
 ### 3. `main.py` 업데이트
@@ -130,4 +135,5 @@ python main.py
 ## 참고
 
 - `utils.text_processor`의 `clean_text()` 함수는 연속된 공백 제거 및 특수문자 정규화를 수행합니다.
-- `utils.text_processor`의 `split_articles()` 함수는 법령 텍스트를 조항별로 분리합니다.
+- `utils.text_processor`의 `split_articles()` 함수는 법령 텍스트를 조항별로 분리합니다. PDF에서 추출한 텍스트를 조항 단위로 구조화하여 더 정확한 파싱이 가능합니다.
+- PDF 처리 시 텍스트는 먼저 정제(`clean_text`)되고, 조항으로 분리(`split_articles`)된 후, 다시 결합되어 워크플로우에 전달됩니다.

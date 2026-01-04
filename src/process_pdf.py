@@ -10,7 +10,7 @@ from rich.prompt import Prompt, Confirm
 from models.schemas import LegalDocument
 from graphs.legal_graph import LegalKnowledgeGraphWorkflow
 from utils.pdf_processor import extract_text_from_pdf, get_pdf_metadata, list_pdf_files
-from utils.text_processor import clean_text
+from utils.text_processor import clean_text, split_articles
 from utils.common_utils import check_gpu, test_llm_connection, save_to_memgraph, display_result_tables
 
 # 환경 변수 로드
@@ -81,12 +81,17 @@ def process_pdf_document(pdf_path: str):
         # PDF에서 텍스트 추출
         content = extract_text_from_pdf(pdf_path)
         
-        # text_processor를 사용하여 텍스트 정제
+        # text_processor를 사용하여 텍스트 정제 및 파싱
         content = clean_text(content)
+        
+        # split_articles를 사용하여 조항별로 분리하고 다시 결합
+        # 이는 텍스트를 조항 단위로 정리하여 더 나은 파싱 결과를 제공합니다
+        articles = split_articles(content)
+        content = "\n\n".join(articles)  # 조항들을 개행으로 구분하여 재결합
         
         metadata = get_pdf_metadata(pdf_path)
         
-        console.print(f"✅ PDF 읽기 완료 - {len(content)} 문자, {metadata['pages']} 페이지", style="green")
+        console.print(f"✅ PDF 읽기 완료 - {len(content)} 문자, {metadata['pages']} 페이지, {len(articles)} 조항", style="green")
         
         # 법률 문서 객체 생성
         title = metadata.get('title') or metadata.get('subject') or Path(pdf_path).stem
