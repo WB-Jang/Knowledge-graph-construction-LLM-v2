@@ -66,6 +66,7 @@ def save_to_memgraph(document: LegalDocument, clear_existing: bool = False):
     
     console.print("\n💾 Memgraph에 저장 중...", style="bold blue")
     
+    mg_client = None
     try:
         mg_client = MemgraphClient()
         
@@ -84,10 +85,11 @@ def save_to_memgraph(document: LegalDocument, clear_existing: bool = False):
         console.print("\n🌐 Memgraph Lab에서 확인하세요:", style="bold cyan")
         console.print("   http://localhost:3000")
         
-        mg_client.close()
-        
     except Exception as e:
         console.print(f"⚠️ Memgraph 저장 실패: {e}", style="bold yellow")
+    finally:
+        if mg_client:
+            mg_client.close()
 
 
 def display_result_tables(result: LegalDocument, max_items: int = 10):
