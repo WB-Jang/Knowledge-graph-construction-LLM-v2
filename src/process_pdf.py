@@ -9,10 +9,9 @@ from rich.prompt import Prompt, Confirm
 
 from models.schemas import LegalDocument
 from graphs.legal_graph import LegalKnowledgeGraphWorkflow
-from database.memgraph_client import MemgraphClient
-from llm.gemini_client import get_llm as gemini_llm
-from llm.llama_client import get_llm as opensource_llm
 from utils.pdf_processor import extract_text_from_pdf, get_pdf_metadata, list_pdf_files
+from utils.text_processor import clean_text
+from utils.common_utils import check_gpu, test_llm_connection, save_to_memgraph, display_result_tables
 
 # 환경 변수 로드
 load_dotenv()
@@ -21,49 +20,6 @@ console = Console()
 
 # PDF 파일 저장 디렉토리
 PDF_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "pdfs")
-
-
-def check_gpu():
-    """GPU 확인"""
-    try:
-        import torch
-        if torch.cuda.is_available():
-            console.print(f"✅ GPU 사용 가능: {torch.cuda.get_device_name(0)}", style="bold green")
-            console.print(f"   CUDA 버전: {torch.version.cuda}")
-            console.print(f"   GPU 메모리: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
-        else:
-            console.print("⚠️ GPU를 사용할 수 없습니다. CPU 모드로 실행됩니다.", style="bold yellow")
-    except ImportError:
-        console.print("⚠️ PyTorch가 설치되지 않았습니다.", style="bold yellow")
-
-
-def test_llm_connection():
-    """LLM 연결 테스트"""
-    use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
-    
-    if use_local:
-        console.print("\n🔍 로컬 LLM 연결 테스트 중...", style="bold blue")
-    else:
-        console.print("\n🔍 Gemini API 연결 테스트 중...", style="bold blue")
-    
-    try:
-        llm = opensource_llm()
-        result = llm.invoke("안녕하세요. 간단히 인사해주세요.")
-        console.print(f"✅ LLM 응답: {result[:100]}...", style="green")
-        return True
-    except Exception as e:
-        console.print(f"❌ LLM 연결 실패: {e}", style="bold red")
-        
-        if not use_local:
-            console.print("\n⚠️ Gemini API 설정을 확인하세요:", style="bold yellow")
-            console.print(f"   GOOGLE_API_KEY: {'설정됨' if os.getenv('GOOGLE_API_KEY') else '미설정'}")
-            console.print("\n💡 Google AI Studio에서 API 키 발급:")
-            console.print("   https://makersuite.google.com/app/apikey")
-        else:
-            console.print("\n⚠️ llama-cpp API 설정을 확인하세요:", style="bold yellow")
-            console.print(f"   API URL: {os.getenv('LLAMA_CPP_API_URL', 'Not set')}")
-        
-        return False
 
 
 def select_pdf_file():
@@ -124,6 +80,10 @@ def process_pdf_document(pdf_path: str):
     try:
         # PDF에서 텍스트 추출
         content = extract_text_from_pdf(pdf_path)
+        
+        # text_processor를 사용하여 텍스트 정제
+        content = clean_text(content)
+        
         metadata = get_pdf_metadata(pdf_path)
         
         console.print(f"✅ PDF 읽기 완료 - {len(content)} 문자, {metadata['pages']} 페이지", style="green")
@@ -149,45 +109,13 @@ def process_pdf_document(pdf_path: str):
         console.print(f"   추출된 조항: {len(result.entities)}개")
         console.print(f"   추출된 관계: {len(result.triplets)}개")
         
-        # 결과 테이블 생성
-        if result.entities:
-            entity_table = Table(title=f"📊 추출된 개체 (상위 {min(10, len(result.entities))}개)")
-            entity_table.add_column("조항", style="cyan")
-            entity_table.add_column("개념", style="magenta")
-            entity_table.add_column("주체", style="green")
-            entity_table.add_column("행위", style="yellow")
-            
-            for entity in result.entities[:10]:
-                entity_table.add_row(
-                    entity.article_number,
-                    entity.concept[:30],
-                    entity.subject or "-",
-                    entity.action or "-"
-                )
-            
-            console.print(entity_table)
-        
-        # 관계 테이블
-        if result.triplets:
-            relation_table = Table(title=f"🔗 추출된 관계 (상위 {min(10, len(result.triplets))}개)")
-            relation_table.add_column("주체", style="cyan")
-            relation_table.add_column("관계", style="magenta")
-            relation_table.add_column("대상", style="green")
-            relation_table.add_column("신뢰도", style="yellow")
-            
-            for triplet in result.triplets[:10]:
-                relation_table.add_row(
-                    triplet.subject[:20],
-                    triplet.relation,
-                    triplet.object[:20],
-                    f"{triplet.confidence:.2f}"
-                )
-            
-            console.print(relation_table)
+        # 결과 테이블 표시
+        display_result_tables(result)
         
         # Memgraph에 저장 여부 확인
         if Confirm.ask("\n💾 결과를 Memgraph에 저장하시겠습니까?", default=True):
-            save_to_memgraph(result)
+            clear_existing = Confirm.ask("   기존 데이터를 삭제하시겠습니까?", default=False)
+            save_to_memgraph(result, clear_existing=clear_existing)
         
         return result
         
@@ -199,35 +127,6 @@ def process_pdf_document(pdf_path: str):
         import traceback
         console.print(traceback.format_exc(), style="red")
         return None
-
-
-def save_to_memgraph(document: LegalDocument):
-    """처리된 문서를 Memgraph에 저장합니다."""
-    console.print("\n💾 Memgraph에 저장 중...", style="bold blue")
-    
-    try:
-        mg_client = MemgraphClient()
-        
-        # 기존 데이터 삭제 여부 확인
-        if Confirm.ask("   기존 데이터를 삭제하시겠습니까?", default=False):
-            mg_client.clear_database()
-            console.print("   🗑️ 기존 데이터 삭제 완료", style="yellow")
-        
-        mg_client.create_indexes()
-        mg_client.save_document(document)
-        
-        stats = mg_client.get_graph_statistics()
-        console.print(f"✅ 저장 완료 - 문서: {stats.get('documents', 0)}, "
-                     f"조항: {stats.get('articles', 0)}, "
-                     f"개체: {stats.get('entities', 0)}", style="bold green")
-        
-        console.print("\n🌐 Memgraph Lab에서 확인하세요:", style="bold cyan")
-        console.print("   http://localhost:3000")
-        
-        mg_client.close()
-        
-    except Exception as e:
-        console.print(f"⚠️ Memgraph 저장 실패: {e}", style="bold yellow")
 
 
 def main():
