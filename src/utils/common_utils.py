@@ -5,7 +5,6 @@ from rich.table import Table
 from typing import Optional
 
 from ..models.schemas import LegalDocument
-from ..database.memgraph_client import MemgraphClient
 
 console = Console()
 
@@ -62,6 +61,9 @@ def save_to_memgraph(document: LegalDocument, clear_existing: bool = False):
         document: 저장할 법률 문서
         clear_existing: 기존 데이터 삭제 여부
     """
+    # Import MemgraphClient here to avoid circular imports
+    from ..database.memgraph_client import MemgraphClient
+    
     console.print("\n💾 Memgraph에 저장 중...", style="bold blue")
     
     try:
