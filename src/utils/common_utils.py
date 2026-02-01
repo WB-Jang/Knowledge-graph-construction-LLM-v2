@@ -4,7 +4,7 @@ from rich.console import Console
 from rich.table import Table
 from typing import Optional
 
-from ..models.schemas import LegalDocument
+from models.schemas import LegalDocument
 
 console = Console()
 
@@ -25,19 +25,30 @@ def check_gpu():
 
 def test_llm_connection() -> bool:
     """LLM 연결 테스트"""
-    from ..llm.llama_client import get_llm as opensource_llm
-    
     use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
     
     if use_local:
         console.print("\n🔍 로컬 LLM 연결 테스트 중...", style="bold blue")
+        from llm.llama_client import get_llm as opensource_llm
+        llm_getter = opensource_llm
     else:
         console.print("\n🔍 Gemini API 연결 테스트 중...", style="bold blue")
+        from llm.gemini_client import get_llm as gemini_llm
+        llm_getter = gemini_llm
     
     try:
-        llm = opensource_llm()
+        llm = llm_getter()
         result = llm.invoke("안녕하세요. 간단히 인사해주세요.")
-        console.print(f"✅ LLM 응답: {result[:100]}...", style="green")
+        
+        # AIMessage 객체인 경우 content 속성 사용
+        if hasattr(result, 'content'):
+            response_text = result.content
+        else:
+            response_text = str(result)
+        
+        # 응답이 너무 길면 자르기
+        display_text = response_text[:100] + "..." if len(response_text) > 100 else response_text
+        console.print(f"✅ LLM 응답: {display_text}", style="green")
         return True
     except Exception as e:
         console.print(f"❌ LLM 연결 실패: {e}", style="bold red")
@@ -62,7 +73,7 @@ def save_to_memgraph(document: LegalDocument, clear_existing: bool = False):
         clear_existing: 기존 데이터 삭제 여부
     """
     # Import MemgraphClient here to avoid circular imports
-    from ..database.memgraph_client import MemgraphClient
+    from database.memgraph_client import MemgraphClient
     
     console.print("\n💾 Memgraph에 저장 중...", style="bold blue")
     

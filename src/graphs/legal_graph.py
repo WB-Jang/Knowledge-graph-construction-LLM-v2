@@ -1,9 +1,9 @@
-from typing import Dict, List, TypedDict
+from typing import List, TypedDict
 from langgraph.graph import StateGraph, END
-from ..models.schemas import LegalEntity, GraphTriplet, LegalDocument
-from ..chains.entity_extraction_chain import EntityExtractionChain
-from ..chains.relation_extraction_chain import RelationExtractionChain
-from ..utils.text_processor import split_articles
+from models.schemas import LegalEntity, GraphTriplet, LegalDocument
+from chains.entity_extraction_chain import EntityExtractionChain
+from chains.relation_extraction_chain import RelationExtractionChain
+from utils.text_processor import split_articles
 
 
 class GraphState(TypedDict):

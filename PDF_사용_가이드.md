@@ -28,6 +28,7 @@ cp ~/Downloads/저작권법.pdf data/pdfs/
 python src/process_pdf.py
 
 # 또는 poetry 사용 시
+poetry install
 poetry run python src/process_pdf.py
 ```
 

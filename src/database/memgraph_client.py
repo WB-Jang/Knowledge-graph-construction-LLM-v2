@@ -2,7 +2,7 @@ import os
 from typing import List, Dict, Any
 from gqlalchemy import Memgraph
 from neo4j import GraphDatabase
-from ..models.schemas import LegalDocument, LegalEntity, GraphTriplet
+from models.schemas import LegalDocument, LegalEntity, GraphTriplet
 
 
 class MemgraphClient:

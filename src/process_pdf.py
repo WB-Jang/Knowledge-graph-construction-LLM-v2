@@ -15,7 +15,7 @@ from utils.common_utils import check_gpu, test_llm_connection, save_to_memgraph,
 
 # 환경 변수 로드
 load_dotenv()
-
+print(os.getenv("GOOGLE_API_KEY"))
 console = Console()
 
 # PDF 파일 저장 디렉토리

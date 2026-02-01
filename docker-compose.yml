@@ -5,13 +5,13 @@ services:
     build: .
     container_name: legal-knowledge-graph-v2
     volumes: 
-      # - .:/app 
+      - .:/app  # 소스 코드 및 데이터 디렉토리 마운트
       - legal-kg-cache:/home/appuser/.cache
       - legal-models:/app/models
     environment:  
       # Google Gemini API 설정
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-your-google-api-key-here}
-      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash-preview-09-2025}
       
       # LLM 설정
       - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.0}
