@@ -4,6 +4,7 @@ services:
   legal-kg:  
     build: .
     container_name: legal-knowledge-graph-v2
+    
     volumes: 
       - .:/app  # 소스 코드 및 데이터 디렉토리 마운트
       - legal-kg-cache:/home/appuser/.cache
@@ -53,8 +54,35 @@ services:
     extra_hosts: 
       - "host.docker. internal:host-gateway"
 
+  memgraph:  # 이 부분을 추가
+    image: memgraph/memgraph:latest
+    container_name: legal-kg-memgraph
+    ports:
+      - "7687:7687"
+      # - "3000:3000"
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+      - memgraph_logs:/var/log/memgraph
+    environment:
+      - MEMGRAPH="--log-level=TRACE --also-log-to-stderr"
+    restart: unless-stopped
+  memgraph-lab:  # 새로 추가
+    image: memgraph/lab:latest
+    container_name: legal-kg-memgraph-lab
+    ports:
+      - "3000:3000"
+    environment:
+      - MG_HOST=memgraph  # Memgraph 컨테이너와 연결
+      - MG_PORT=7687
+    depends_on:
+      - memgraph
+    restart: unless-stopped
 volumes:
   legal-kg-cache:
     driver: local
   legal-models:
+    driver: local
+  memgraph_data:  # 이 부분을 추가
+    driver: local
+  memgraph_logs:  # 이 부분을 추가
     driver: local

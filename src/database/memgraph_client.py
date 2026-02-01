@@ -1,8 +1,7 @@
 import os
 from typing import List, Dict, Any
-from gqlalchemy import Memgraph
 from neo4j import GraphDatabase
-from models.schemas import LegalDocument, LegalEntity, GraphTriplet
+from src.models.schemas import LegalDocument
 
 
 class MemgraphClient:
@@ -19,14 +18,6 @@ class MemgraphClient:
         self.port = port or int(os.getenv("MEMGRAPH_PORT", "7687"))
         self.username = username or os.getenv("MEMGRAPH_USERNAME", "")
         self.password = password or os.getenv("MEMGRAPH_PASSWORD", "")
-        
-        # GQLAlchemy 연결 (Memgraph 전용 기능)
-        try:
-            self.db = Memgraph(host=self.host, port=self.port)
-            print(f"✅ Memgraph 연결 성공: {self.host}:{self.port}")
-        except Exception as e:
-            print(f"⚠️ GQLAlchemy 연결 실패, Neo4j 드라이버 사용: {e}")
-            self.db = None
         
         # Neo4j 드라이버 (Bolt 프로토콜 - Memgraph 호환)
         uri = f"bolt://{self.host}:{self.port}"

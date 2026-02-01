@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt, Confirm
 
-from models.schemas import LegalDocument
+from src.models.schemas import LegalDocument
 from graphs.legal_graph import LegalKnowledgeGraphWorkflow
 from utils.pdf_processor import extract_text_from_pdf, get_pdf_metadata, list_pdf_files
 from utils.text_processor import clean_text, split_articles
@@ -110,7 +110,7 @@ def process_pdf_document(pdf_path: str):
             result = workflow.process(document)
         
         # 결과 출력
-        console.print(f"\n✨ 처리 완료!", style="bold green")
+        console.print(f"   처리 완료!", style="bold green")
         console.print(f"   추출된 조항: {len(result.entities)}개")
         console.print(f"   추출된 관계: {len(result.triplets)}개")
         
