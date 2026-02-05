@@ -15,7 +15,27 @@
   - Step 2: 관계 정의 (Graph Triplets)
 - **LangChain & LangGraph 워크플로우**
 
-## 🚀 시작하기
+## 🏗️ 프로젝트 구조
+
+```
+├── data/
+│   └── pdfs/               # PDF 파일 저장 디렉토리
+├── src/
+│   ├── llm/                # LLM 클라이언트
+│   │   ├── llama_client.py
+│   │   └── gemini_client.py
+│   ├── chains/             # LangChain 체인(node / relation extractor)
+│   ├── graphs/             # LangGraph 워크플로우
+│   ├── database/           # Memgraph 클라이언트
+│   ├── models/             # Pydantic 스키마(node / relation 사전 정의 스키마)
+│   ├── utils/              # 유틸리티
+│   │   ├── text_processor.py
+│   │   └── pdf_processor.py  # PDF 처리
+│   ├── main.py             # 예제 실행 스크립트
+│   └── process_pdf.py      # PDF 처리 스크립트
+├── Docker-compose.yml      # Docker-compse
+└── Dockerfile              # GPU Docker 설정
+```
 
 
 ### 🐳 로컬 환경 또는 Docker에서 전체 기능 사용하기
@@ -231,28 +251,6 @@ RETURN e. name, count(r) as refs
 ORDER BY refs DESC LIMIT 10;
 ```
 
-## 🏗️ 프로젝트 구조
-
-```
-├── src/
-│   ├── llm/                # LLM 클라이언트
-│   │   ├── llama_client.py
-│   │   └── gemini_client.py
-│   ├── chains/             # LangChain 체인
-│   ├── graphs/             # LangGraph 워크플로우
-│   ├── database/           # Memgraph 클라이언트
-│   ├── models/             # Pydantic 스키마
-│   ├── utils/              # 유틸리티
-│   │   ├── text_processor.py
-│   │   └── pdf_processor.py  # PDF 처리
-│   ├── main.py             # 예제 실행 스크립트
-│   └── process_pdf.py      # PDF 처리 스크립트
-├── data/
-│   └── pdfs/               # PDF 파일 저장 디렉토리
-├── tests/                  # 테스트 파일
-├── models/                 # 로컬 LLM 모델 (마운트)
-└── Dockerfile              # GPU Docker 설정
-```
 
 ## 🔧 개발
 
