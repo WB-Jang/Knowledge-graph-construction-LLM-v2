@@ -17,134 +17,195 @@
 
 ## 🚀 시작하기
 
-### 🌐 Google Colab에서 빠르게 시작하기 (권장)
-
-Docker나 로컬 환경 설정 없이 Google Colab에서 바로 실행할 수 있습니다!
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/WB-Jang/Knowledge-graph-construction-LLM-v2/blob/main/knowledge_graph_colab.ipynb)
-
-**Colab 노트북 특징:**
-- ✅ 무료 GPU (T4) 사용 가능
-- ✅ Google Gemini API 연동 (무료 tier)
-- ✅ PDF 파일 업로드 및 처리
-- ✅ 결과 시각화 및 다운로드
-- ✅ 환경 설정 불필요
-
-**사용 방법:**
-1. 위 배지를 클릭하여 Colab 노트북 열기
-2. Google Gemini API 키 발급 ([API 키 받기](https://makersuite.google.com/app/apikey))
-3. 노트북의 셀을 순차적으로 실행
-4. 샘플 법률 텍스트 또는 PDF 파일 처리
-
-> 💡 **참고:** Colab 환경에서는 Memgraph를 사용하지 않고 메모리 기반으로 처리하며, 테스트 목적으로 처음 3개 조항만 처리합니다.
-
----
 
 ### 🐳 로컬 환경 또는 Docker에서 전체 기능 사용하기
 
 전체 기능(Memgraph, 무제한 조항 처리 등)을 사용하려면 로컬 환경이나 Docker를 사용하세요.
 
-### 전제 조건
+# PDF 파일 처리 가이드
 
-1. **NVIDIA GPU & Docker GPU 지원**
-   ```bash
-   # NVIDIA Docker 설치
-   distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-   curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-   curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
-     sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-   
-   sudo apt-get update && sudo apt-get install -y nvidia-docker2
-   sudo systemctl restart docker
-   ```
+## 📄 개요
 
-2. **llama-cpp-python 서버 (외부에서 실행)**
-   ```bash
-   # llama-cpp-python 설치
-   CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python[server]
-   
-   # 모델 다운로드 (예시)
-   huggingface-cli download beomi/Llama-3-Open-Ko-8B-gguf
-   
-   # 서버 실행
-   python -m llama_cpp.server \
-     --model models/llama-3-open-ko-8b.Q4_K_M.gguf \
-     --host 0.0.0.0 \
-     --port 8000 \
-     --n_gpu_layers 35 \
-     --n_ctx 4096
-   ```
+이제 실제 PDF 파일을 넣어서 법률 지식 그래프를 생성할 수 있습니다!
 
-### 1.  환경 설정
+## 🚀 사용 방법
+
+### 1단계: PDF 파일 준비
+
+PDF 파일을 `data/pdfs/` 디렉토리에 복사합니다:
 
 ```bash
-# 저장소 클론
-git clone <your-repo>
-cd legal-knowledge-graph
-
-# 환경 변수 설정
-cp .env.example .env
-# . env 파일 수정
-```
-
-**.env 설정 예시:**
-```bash
-LLAMA_CPP_API_URL=http://host.docker.internal:8000
-LLM_MODEL_NAME=llama-3-korean-8b
-LLM_TEMPERATURE=0.0
-LLM_MAX_TOKENS=2048
-
-MEMGRAPH_HOST=memgraph
-MEMGRAPH_PORT=7687
-```
-
-### 2. Docker Compose로 실행
-
-```bash
-# GPU 확인
-nvidia-smi
-
-# 컨테이너 빌드 및 실행
-docker-compose up -d --build
-
-# 로그 확인
-docker-compose logs -f legal-kg
-
-# GPU 사용 확인
-docker exec legal-knowledge-graph check-gpu
-```
-
-### 3. VSCode Dev Container 사용
-
-1. VSCode에서 프로젝트 열기
-2. `Ctrl+Shift+P` → "Dev Containers: Reopen in Container"
-3. 자동으로 GPU 환경 구성
-
-### 4. 실행
-
-#### 예제 코드로 실행 (기본)
-```bash
-# 컨테이너 내부에서
-poetry run python src/main.py
-```
-
-#### PDF 파일로 실행
-```bash
-# 1. PDF 파일을 data/pdfs/ 디렉토리에 복사
+# 프로젝트 루트 디렉토리에서
 cp /path/to/your/법률문서.pdf data/pdfs/
+```
 
-# 2. PDF 처리 스크립트 실행
+**예시:**
+```bash
+cp ~/Downloads/개인정보보호법.pdf data/pdfs/
+cp ~/Downloads/저작권법.pdf data/pdfs/
+```
+
+### 2단계: PDF 처리 스크립트 실행
+
+```bash
+# 프로젝트 루트 디렉토리에서
+python src/process_pdf.py
+
+# 또는 poetry 사용 시
+poetry install
 poetry run python src/process_pdf.py
 ```
 
-**PDF 처리 과정:**
-1. `data/pdfs/` 디렉토리의 PDF 파일 목록이 표시됩니다
-2. 처리할 파일 번호를 선택합니다
-3. PDF에서 텍스트를 자동으로 추출합니다
-4. 법률 조항을 분석하고 지식 그래프를 생성합니다
-5. Memgraph에 저장할지 선택합니다
+### 3단계: 대화형 처리
 
-**참고:** PDF 파일은 텍스트가 포함된 파일이어야 합니다. 스캔된 이미지 PDF는 현재 지원하지 않습니다.
+스크립트를 실행하면 다음과 같은 과정이 진행됩니다:
+
+1. **GPU/LLM 연결 확인**
+   - GPU 사용 가능 여부 확인
+   - Gemini API 또는 로컬 LLM 연결 테스트
+
+2. **PDF 파일 선택**
+   ```
+   📁 발견된 PDF 파일 (3개):
+   ┌──────┬─────────────────────┬────────┐
+   │ 번호 │ 파일명               │ 페이지 │
+   ├──────┼─────────────────────┼────────┤
+   │ 1    │ 개인정보보호법.pdf   │ 45     │
+   │ 2    │ 저작권법.pdf         │ 38     │
+   │ 3    │ 특허법.pdf           │ 52     │
+   └──────┴─────────────────────┴────────┘
+   
+   처리할 PDF 파일 번호를 입력하세요 [1]:
+   ```
+
+3. **자동 처리**
+   - PDF에서 텍스트 자동 추출
+   - 법률 조항 분석
+   - 개체 및 관계 추출
+   - 지식 그래프 생성
+
+4. **결과 확인**
+   ```
+   📊 추출된 개체 (10개)
+   ┌────────┬──────────────┬────────┬────────┐
+   │ 조항   │ 개념          │ 주체    │ 행위    │
+   ├────────┼──────────────┼────────┼────────┤
+   │ 제1조  │ 목적          │ 법      │ 정의함  │
+   ...
+   
+   🔗 추출된 관계 (15개)
+   ┌────────┬────────┬────────┬────────┐
+   │ 주체   │ 관계    │ 대상    │ 신뢰도 │
+   ├────────┼────────┼────────┼────────┤
+   │ 법     │ 정의함  │ 목적    │ 0.95   │
+   ...
+   ```
+
+5. **Memgraph 저장 (선택)**
+   ```
+   💾 결과를 Memgraph에 저장하시겠습니까? [Y/n]:
+   
+   기존 데이터를 삭제하시겠습니까? [y/N]:
+   ```
+
+## 📝 지원되는 PDF 파일
+
+✅ **지원:**
+- 텍스트가 포함된 PDF 파일
+- 한글/영문 법률 문서
+- 일반적인 법률 조항 구조
+
+❌ **미지원 (현재):**
+- 스캔된 이미지 PDF (OCR 필요)
+- 복잡한 레이아웃의 PDF
+- 암호화된 PDF
+
+## 🔧 설정
+
+### .env 파일 설정
+
+```bash
+# Gemini API 사용 (권장)
+GOOGLE_API_KEY=your-api-key-here
+GEMINI_MODEL=gemini-2.5-flash-preview-09-2025
+
+# 또는 로컬 LLM 사용
+USE_LOCAL_LLM=true
+LLAMA_CPP_API_URL=http://localhost:8000
+```
+
+### 의존성 설치
+
+```bash
+# PDF 처리 라이브러리
+pip install PyMuPDF pypdf2
+
+# 또는 poetry
+poetry add PyMuPDF pypdf2
+```
+
+## 📂 디렉토리 구조
+
+```
+Knowledge-graph-construction-LLM-v2/
+├── data/
+│   └── pdfs/              ← 여기에 PDF 파일 저장
+│       ├── README.md      ← 상세 가이드
+│       ├── 개인정보보호법.pdf
+│       ├── 저작권법.pdf
+│       └── 특허법.pdf
+├── src/
+│   ├── process_pdf.py     ← PDF 처리 메인 스크립트
+│   └── utils/
+│       └── pdf_processor.py  ← PDF 처리 유틸리티
+└── ...
+```
+
+## 💡 팁
+
+1. **대용량 PDF 처리**
+   - 페이지 수가 많은 PDF는 처리 시간이 오래 걸릴 수 있습니다
+   - Gemini API 사용 시 더 빠르게 처리됩니다
+
+2. **여러 파일 처리**
+   - 스크립트를 여러 번 실행하여 여러 파일을 처리할 수 있습니다
+   - Memgraph 저장 시 "기존 데이터 삭제" 옵션을 조정하세요
+
+3. **결과 확인**
+   - Memgraph Lab: http://localhost:3000
+   - Cypher 쿼리로 결과를 탐색할 수 있습니다
+
+## 🐛 문제 해결
+
+### PDF 읽기 실패
+```bash
+❌ PDF 읽기 실패: ...
+```
+- PDF 파일이 손상되었거나 암호화되어 있을 수 있습니다
+- 다른 PDF 뷰어로 열어보세요
+
+### LLM 연결 실패
+```bash
+❌ LLM 연결 실패: ...
+```
+- `.env` 파일의 API 키를 확인하세요
+- Gemini API: https://makersuite.google.com/app/apikey
+- 로컬 LLM: llama-cpp 서버가 실행 중인지 확인
+
+### Memgraph 연결 실패
+```bash
+⚠️ Memgraph 저장 실패: ...
+```
+- Memgraph 서버가 실행 중인지 확인하세요
+- Docker: `docker-compose up -d memgraph`
+
+## 📞 도움말
+
+더 자세한 내용은 다음을 참고하세요:
+- [README.md](../README.md) - 전체 프로젝트 가이드
+- [TEST_REPORT.md](../TEST_REPORT.md) - 테스트 결과
+- [data/pdfs/README.md](../data/pdfs/README.md) - PDF 디렉토리 가이드
+
 
 ## 📊 Memgraph Lab
 
@@ -261,10 +322,6 @@ docker-compose ps memgraph
 # 로그 확인
 docker-compose logs memgraph
 ```
-
-## 🤝 기여
-
-이슈와 PR을 환영합니다! 
 
 ## 📄 라이선스
 
