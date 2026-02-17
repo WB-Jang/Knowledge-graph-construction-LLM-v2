@@ -24,15 +24,6 @@ cp ~/Downloads/저작권법.pdf data/pdfs/
 ```
 
 
-### 1-2단계: memgrpagh 실행
-```
-ubuntu에서 프로젝트 루트에서
-
-docker compose up -d memgraph
-docker compose up -d memgraph-lab
-```
-
-
 ### 2단계: PDF 처리 스크립트 실행
 
 ```bash
@@ -95,6 +86,71 @@ poetry run python src/process_pdf.py
    
    기존 데이터를 삭제하시겠습니까? [y/N]:
    ```
+
+6. memgraph lab : cypher query 
+
+   ```모든 조항 조회
+   MATCH (d:Document)-[:CONTAINS]->(a:Article)
+   RETURN d.title, a.number, a.concept, a.subject, a.action, a.object, a.full_text;
+   ```
+   ```문서 목록 조회
+   MATCH (d:Document)
+                OPTIONAL MATCH (d)-[:CONTAINS]->(a:Article)
+                RETURN d.title as 문서명,
+                       d.law_number as 법령번호,
+                       d.created_at as 생성일시,
+                       count(a) as 조항수
+                ORDER BY 생성일시 
+   ```
+   ```모든 조항 조회
+   MATCH (d:Document)-[:CONTAINS]->(a:Article)
+                RETURN d.title as 문서명,
+                       a.number as 조항번호,
+                       a.concept as 개념,
+                       a.subject as 주체,
+                       a.action as 행위,
+                       a.object as 객체,
+                       a.full_text as 전체텍스트
+                ORDER BY d.title, a.number
+   ```
+   ```모든 개체(entity) 조회
+   MATCH (e:Entity)
+                OPTIONAL MATCH (e)-[r1:RELATION]->()
+                WITH e, count(r1) as outgoing
+                OPTIONAL MATCH ()-[r2:RELATION]->(e)
+                RETURN e.name as 개체명,
+                       outgoing as 발신관계수,
+                       count(r2) as 수신관계수,
+                       (outgoing + count(r2)) as 총관계수
+                ORDER BY 총관계수 DESC
+   ```
+   ```엔터티(entity) - 관계(relation) 목록 조회
+   MATCH (s:Entity)-[r:RELATION]->(o:Entity)
+                RETURN s.name as 주체,
+                       r.type as 관계유형,
+                       o.name as 대상,
+                       r.confidence as 신뢰도,
+                       r.article as 조항번호
+                ORDER BY r.article, r.confidence DESC
+   ```
+   ```조항별 관계 통합 조회
+   MATCH (a:Article)
+                OPTIONAL MATCH (s:Entity)-[r:RELATION]->(o:Entity)
+                WHERE r.article = a.number
+                RETURN a.number as 조항번호,
+                       a.concept as 개념,
+                       s.name as 주체,
+                       r.type as 관계유형,
+                       o.name as 대상,
+                       r.confidence as 신뢰도
+                ORDER BY a.number, r.confidence DESC
+   ```
+   ```전체 통계 조회
+   MATCH ()-[r:RELATION]->()
+                RETURN r.type as 관계유형, count(r) as 개수
+                ORDER BY 개수 DESC
+   ```
+
 
 ## 📝 지원되는 PDF 파일
 

@@ -41,11 +41,11 @@ class LegalKnowledgeGraphWorkflow:
         workflow.add_edge("extract_relations", "validate_graph")
         workflow.add_edge("validate_graph", END)
         
-        return workflow. compile()
+        return workflow.compile()
     
     def _split_articles(self, state: GraphState) -> GraphState:
         """Step 1: 조항 분리"""
-        articles = split_articles(state["document"]. content)
+        articles = split_articles(state["document"].content)
         state["articles"] = articles
         state["current_index"] = 0
         return state

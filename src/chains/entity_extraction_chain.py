@@ -1,10 +1,10 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.exceptions import OutputParserException
+# from langchain_core.exceptions import OutputParserException
 from typing import List
 from models.schemas import LegalEntity
 from llm.gemini_client import get_llm as gemini_llm
-import json
+# import json
 # from llm.llama_client import get_llm as opensource_llm
 
 class EntityExtractionChain:  
