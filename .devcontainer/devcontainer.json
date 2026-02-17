@@ -8,8 +8,8 @@
     "vscode": {
       "extensions": [
         "ms-python.python",
-        "ms-python. vscode-pylance",
-        "ms-python. black-formatter",
+        "ms-python.vscode-pylance",
+        "ms-python.black-formatter",
         "ms-toolsai.jupyter",
         "charliermarsh.ruff",
         "redhat.vscode-yaml",

@@ -57,11 +57,11 @@ class MemgraphClient:
         """법률 문서를 Memgraph에 저장"""
         with self.driver.session() as session:
             # 1. 문서 노드 생성
-            session. run("""
+            session.run("""
                 CREATE (d:Document {
-                    title:  $title,
+                    title: $title,
                     law_number: $law_number,
-                    created_at: datetime()
+                    created_at: localdatetime()
                 })
             """,
                 title=document.title,
@@ -71,9 +71,9 @@ class MemgraphClient:
             # 2. 조항 노드 및 관계 생성
             for entity in document.entities:
                 session.run("""
-                    MATCH (d:Document {title:  $doc_title})
+                    MATCH (d:Document {title: $doc_title})
                     CREATE (a:Article {
-                        number:  $number,
+                        number: $number,
                         concept: $concept,
                         subject: $subject,
                         action: $action,
@@ -87,7 +87,7 @@ class MemgraphClient:
                     concept=entity.concept,
                     subject=entity.subject,
                     action=entity.action,
-                    object=entity. object,
+                    object=entity.object,
                     full_text=entity.full_text
                 )
             
@@ -100,13 +100,12 @@ class MemgraphClient:
                     CREATE (s)-[r:RELATION {
                         type: $relation,
                         confidence: $confidence,
-                        article:  $article_number
+                        article: $article_number
                     }]->(o)
-                    CREATE (a)-[:HAS_RELATION]->(r)
                 """,
                     article_number=triplet.article_number,
                     subject=triplet.subject,
-                    object=triplet. object,
+                    object=triplet.object,
                     relation=triplet.relation,
                     confidence=triplet.confidence
                 )
@@ -130,9 +129,9 @@ class MemgraphClient:
         """조항 관련 관계 조회"""
         with self.driver.session() as session:
             result = session.run("""
-                MATCH (a:Article {number: $number})-[:HAS_RELATION]->(r: RELATION)
+                MATCH (a:Article {number: $number})-[:HAS_RELATION]->(r:RELATION)
                 MATCH (s)-[r]->(o)
-                RETURN s. name as subject, r.type as relation, o.name as object, r.confidence as confidence
+                RETURN s.name as subject, r.type as relation, o.name as object, r.confidence as confidence
             """, number=article_number)
             
             return [dict(record) for record in result]

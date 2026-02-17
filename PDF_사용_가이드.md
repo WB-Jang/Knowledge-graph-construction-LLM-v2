@@ -1,5 +1,5 @@
 # PDF 파일 처리 가이드
-
+# Local과의 연결을 테스트 하는 중
 ## 📄 개요
 
 이제 실제 PDF 파일을 넣어서 법률 지식 그래프를 생성할 수 있습니다!
@@ -7,6 +7,8 @@
 ## 🚀 사용 방법
 
 ### 1단계: PDF 파일 준비
+배포된 컨테이너 내부에서는 아래와 같이 준비
+개발 컨테이너 내부에서는 local host 내의 폴더에 위치시킴
 
 PDF 파일을 `data/pdfs/` 디렉토리에 복사합니다:
 
@@ -20,6 +22,16 @@ cp /path/to/your/법률문서.pdf data/pdfs/
 cp ~/Downloads/개인정보보호법.pdf data/pdfs/
 cp ~/Downloads/저작권법.pdf data/pdfs/
 ```
+
+
+### 1-2단계: memgrpagh 실행
+```
+ubuntu에서 프로젝트 루트에서
+
+docker compose up -d memgraph
+docker compose up -d memgraph-lab
+```
+
 
 ### 2단계: PDF 처리 스크립트 실행
 
