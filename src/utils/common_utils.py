@@ -2,7 +2,7 @@
 import os
 from rich.console import Console
 from rich.table import Table
-from typing import Optional
+# from typing import Optional
 
 from models.schemas import LegalDocument
 
