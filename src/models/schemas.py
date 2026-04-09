@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 
 # class LegalEntity(BaseModel):
@@ -22,6 +22,30 @@ class LegalEntity(BaseModel):
     object: Optional[str] = Field(default=None, description="대상")
     legal_force: Optional[str] = Field(default=None, description="강제성 (MANDATORY, PROHIBITIVE, PERMISSIVE 등)")
     full_text: str = Field(description="원문")
+
+    @field_validator("structural_index", mode="before")
+    @classmethod
+    def filter_null_indices(cls, v):
+        """LLM이 [4, null, null, null]처럼 null을 섞어 반환하는 경우 null 요소를 제거"""
+        if isinstance(v, list):
+            return [x for x in v if x is not None]
+        return v
+
+    @field_validator("entity_type", mode="before")
+    @classmethod
+    def default_entity_type(cls, v):
+        """LLM이 null을 반환하는 경우 기본값 사용"""
+        if v is None:
+            return "REGULATION"
+        return v
+
+    @field_validator("concept", mode="before")
+    @classmethod
+    def default_concept(cls, v):
+        """LLM이 null을 반환하는 경우 기본값 사용"""
+        if v is None:
+            return "Unknown"
+        return v
 
 class RelationType(str, Enum):
     # --- 구조 및 참조 관계 ---

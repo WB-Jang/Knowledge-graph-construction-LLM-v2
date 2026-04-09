@@ -11,5 +11,11 @@ __all__ = [
     'get_pdf_metadata',
     'list_pdf_files',
     'split_articles',
-    'clean_text'
+    'clean_text',
+    'export_nodes_csv',
+    'export_triplets_csv',
+    'export_nodes_tsv',
+    'export_triplets_tsv',
+    'export_summary_txt',
+    'export_all',
 ]

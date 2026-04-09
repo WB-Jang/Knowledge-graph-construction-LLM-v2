@@ -12,6 +12,7 @@ from graphs.legal_graph import LegalKnowledgeGraphWorkflow
 from utils.pdf_processor import extract_text_from_pdf, get_pdf_metadata, list_pdf_files
 from utils.text_processor import clean_text, split_articles
 from utils.common_utils import check_gpu, test_llm_connection, save_to_memgraph, display_result_tables
+from utils.export_utils import export_all
 
 # 환경 변수 로드
 load_dotenv()
@@ -115,6 +116,14 @@ def process_pdf_document(pdf_path: str):
         console.print(f"   처리 완료!", style="bold green")
         console.print(f"   추출된 조항: {len(result.entities)}개")
         console.print(f"   추출된 관계: {len(result.triplets)}개")
+        
+        # 파일 내보내기
+        if result.entities or result.triplets:
+            out_dir = export_all(result, base_name=Path(pdf_path).stem)
+            console.print(f"\n📁 결과 파일 저장 완료: {out_dir}", style="bold cyan")
+            console.print(f"   - nodes.csv / nodes.tsv")
+            console.print(f"   - triplets.csv / triplets.tsv")
+            console.print(f"   - summary.txt")
         
         # 결과 테이블 표시
         display_result_tables(result)
