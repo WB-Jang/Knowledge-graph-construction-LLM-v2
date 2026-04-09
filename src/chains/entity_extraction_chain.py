@@ -47,11 +47,26 @@ class EntityExtractionChain:
 법령 텍스트를 분석하여 지식 그래프 구축을 위한 구조화된 노드(Node) 정보를 추출하세요.  
 
 다음 정보를 정확하게 추출하세요:
-1. 조항 번호 (예: 제1조, 제2조의2, 제3조제1항)
-2. 핵심 개념 (해당 조항의 핵심 키워드)
-3. 의무 주체 (주어가 되는 고유명사 또는 일반명사)
-4. 행위 (서술어 중심의 핵심 행위)
-5. 대상 (목적어가 되는 고유명사 또는 일반명사)
+1. 조항 번호 article_number (예: 제1조, 제2조의2, 제3조제1항)
+2. 계층 인덱스 structural_index: [장번호, 절번호, 조번호, 항번호] 형태의 정수 배열. 파악 불가 시 []
+3. 노드 타입 entity_type: 조항의 성격에 따라 다음 중 하나 선택
+   - ACTOR: 특정 주체(기관, 사람)의 권한/의무를 규정
+   - CONCEPT: 용어 정의, 개념 설명
+   - REGULATION: 일반적인 규제/제한 사항
+   - PENALTY: 처벌, 과태료, 제재 관련
+   - PROCEDURE: 신고, 인가, 절차 관련
+   - DEFINITION: 법에서 사용하는 용어를 정의
+4. 핵심 개념 concept (해당 조항의 핵심 키워드)
+5. 의무 주체 subject (주어가 되는 고유명사 또는 일반명사)
+6. 행위 action (서술어 중심의 핵심 행위)
+7. 대상 object (목적어가 되는 고유명사 또는 일반명사)
+8. 법적 강제성 legal_force: 다음 중 하나
+   - MANDATORY: "~하여야 한다", "~해야 한다" 등 의무 규정
+   - PROHIBITIVE: "~해서는 아니 된다", "~금지" 등 금지 규정
+   - PERMISSIVE: "~할 수 있다" 등 허용 규정
+   - DEFINITIONAL: 용어/개념을 정의하는 규정
+   - 파악 불가 시 null
+9. 원문 full_text
 
 ⚠️ 중요: 주체(subject)와 대상(object) 추출 규칙
 - 반드시 군더더기 없는 **단일 명사 또는 짧은 명사구** 형태로만 추출하세요. 수식어나 서술어는 철저히 배제하세요.
@@ -111,6 +126,7 @@ class EntityExtractionChain:
             # 기본값 반환
             return LegalEntity(
                 article_number="Unknown",
+                entity_type="REGULATION",
                 concept="Unknown",
                 subject=None,
                 action=None,
