@@ -7,7 +7,7 @@ from typing import List, Optional
 from models.schemas import LegalDocument, LegalEntity, GraphTriplet
 
 
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "output")
+OUTPUT_DIR = str(Path(__file__).parent.parent.parent / "data" / "output")
 
 
 def _make_output_dir(base_name: str) -> str:
@@ -124,7 +124,7 @@ def export_summary_txt(document: LegalDocument, filepath: str):
             f.write(f"[{e.article_number}] ({e.entity_type}) {e.concept}\n")
             f.write(f"  주체: {e.subject or '-'} | 행위: {e.action or '-'} | 대상: {e.object or '-'}\n")
             f.write(f"  강제성: {e.legal_force or '-'}\n")
-            f.write(f"  원문: {e.full_text[:100].replace(chr(10), ' ')}...\n\n")
+            f.write(f"  원문: {e.full_text[:100].replace('\n', ' ')}...\n\n")
 
         f.write("=== TRIPLETS ===\n")
         for t in document.triplets:
@@ -138,7 +138,7 @@ def export_all(document: LegalDocument, base_name: Optional[str] = None) -> str:
         저장된 디렉토리 경로
     """
     base_name = base_name or document.doc_id or "output"
-    # 파일명에 사용할 수 없는 문자 제거
+    # 파일명에 사용할 수 없는 문자 제거 (유니코드 영숫자 보존)
     safe_base = "".join(c if c.isalnum() or c in "-_" else "_" for c in base_name)
     out_dir = _make_output_dir(safe_base)
 
