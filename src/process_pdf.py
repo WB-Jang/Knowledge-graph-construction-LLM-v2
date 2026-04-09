@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt, Confirm
 
-from src.models.schemas import LegalDocument
+from models.schemas import LegalDocument
 from graphs.legal_graph import LegalKnowledgeGraphWorkflow
 from utils.pdf_processor import extract_text_from_pdf, get_pdf_metadata, list_pdf_files
 from utils.text_processor import clean_text, split_articles
@@ -15,7 +15,7 @@ from utils.common_utils import check_gpu, test_llm_connection, save_to_memgraph,
 
 # 환경 변수 로드
 load_dotenv()
-print(os.getenv("GOOGLE_API_KEY"))
+
 console = Console()
 
 # PDF 파일 저장 디렉토리
@@ -97,8 +97,10 @@ def process_pdf_document(pdf_path: str):
         title = metadata.get('title') or metadata.get('subject') or Path(pdf_path).stem
         
         document = LegalDocument(
+            doc_id=Path(pdf_path).stem,
             title=title,
             law_number=f"PDF 문서 - {Path(pdf_path).name}",
+            enforcement_date=None,
             content=content
         )
         

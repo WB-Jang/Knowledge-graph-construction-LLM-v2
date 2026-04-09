@@ -19,9 +19,11 @@ services:
     
     volumes: 
       - .:/app  # 소스 코드 및 데이터 디렉토리 마운트
+      - legal-kg-venv:/app/.venv # ← 추가: .venv를 별도 볼륨으로 보호
       - legal-kg-cache:/home/appuser/.cache
       - legal-models:/app/models
-    environment:  
+    environment:
+      - PYTHONPATH=/app/src   
       - MEMGRAPH_HOST=memgraph-platform  # 호스트명 변경
       - MEMGRAPH_PORT=7687
       # Google Gemini API 설정
@@ -70,6 +72,8 @@ services:
       - "host.docker. internal:host-gateway"
 
 volumes:
+  legal-kg-venv:        # ← 추가
+    driver: local
   legal-kg-cache:
     driver: local
   legal-models:

@@ -6,7 +6,7 @@ authors = ["WB-Jang <eeariorie2@google.com>"]
 readme = "README.md"
 packages = [{include = "src"}]
 
-[tool.poetry. dependencies]
+[tool.poetry.dependencies]
 python = "^3.11"
 
 # LangChain 코어 (최신 버전으로 업데이트)
@@ -14,6 +14,8 @@ langchain = "^0.3.0"
 langchain-community = "^0.3.0"
 langchain-google-genai = "^2.0.0"
 langgraph = "^0.2.0"
+langchain-groq = "^0.2.0"        # ← 추가
+langchain-openai = "^0.2.0"      # ← 추가
 
 # Google Gemini API (langchain-google-genai와 호환되는 버전)
 google-generativeai = "^0.8.0"
@@ -73,7 +75,7 @@ jupyter = "^1.0.0"
 ipykernel = "^6.28.0"
 pytest-cov = "^4.1.0"
 
-[tool. black]
+[tool.black]
 line-length = 100
 target-version = ['py311']
 
@@ -89,4 +91,4 @@ disallow_untyped_defs = false
 
 [build-system]
 requires = ["poetry-core"]
-build-backend = "poetry. core.masonry.api"
+build-backend = "poetry.core.masonry.api"

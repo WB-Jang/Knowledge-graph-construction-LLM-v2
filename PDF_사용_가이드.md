@@ -87,9 +87,17 @@ poetry run python src/process_pdf.py
    기존 데이터를 삭제하시겠습니까? [y/N]:
    ```
 
+5-1. Memgraph만 실행
+```
+docker start legal-kg-memgraph-platform
+docker stop legal-kg-memgraph-platform
+```
+```
+localhost:3000
+```
 6. memgraph lab : cypher query 
-
-   ```모든 조항 조회
+   모든 조항 조회
+   ```
    MATCH (d:Document)-[:CONTAINS]->(a:Article)
    RETURN d.title, a.number, a.concept, a.subject, a.action, a.object, a.full_text;
    ```
@@ -102,7 +110,8 @@ poetry run python src/process_pdf.py
                        count(a) as 조항수
                 ORDER BY 생성일시 
    ```
-   ```모든 조항 조회
+   모든 조항 조회
+   ```
    MATCH (d:Document)-[:CONTAINS]->(a:Article)
                 RETURN d.title as 문서명,
                        a.number as 조항번호,
@@ -113,7 +122,8 @@ poetry run python src/process_pdf.py
                        a.full_text as 전체텍스트
                 ORDER BY d.title, a.number
    ```
-   ```모든 개체(entity) 조회
+   모든 개체(entity) 조회
+   ```
    MATCH (e:Entity)
                 OPTIONAL MATCH (e)-[r1:RELATION]->()
                 WITH e, count(r1) as outgoing
@@ -124,7 +134,8 @@ poetry run python src/process_pdf.py
                        (outgoing + count(r2)) as 총관계수
                 ORDER BY 총관계수 DESC
    ```
-   ```엔터티(entity) - 관계(relation) 목록 조회
+   엔터티(entity) - 관계(relation) 목록 조회
+   ```
    MATCH (s:Entity)-[r:RELATION]->(o:Entity)
                 RETURN s.name as 주체,
                        r.type as 관계유형,
@@ -133,7 +144,8 @@ poetry run python src/process_pdf.py
                        r.article as 조항번호
                 ORDER BY r.article, r.confidence DESC
    ```
-   ```조항별 관계 통합 조회
+   조항별 관계 통합 조회
+   ```
    MATCH (a:Article)
                 OPTIONAL MATCH (s:Entity)-[r:RELATION]->(o:Entity)
                 WHERE r.article = a.number
@@ -145,12 +157,26 @@ poetry run python src/process_pdf.py
                        r.confidence as 신뢰도
                 ORDER BY a.number, r.confidence DESC
    ```
-   ```전체 통계 조회
+   전체 통계 조회
+   ```
    MATCH ()-[r:RELATION]->()
                 RETURN r.type as 관계유형, count(r) as 개수
                 ORDER BY 개수 DESC
    ```
+   전체 Properties 조회
+   ```
+   // 예시: 'name'이 'Alice'인 Person 노드와 연결된 'KNOWS' 엣지를 조회
+   MATCH (n:Person {name: 'Alice'})-[r:KNOWS]->(m)
+   RETURN properties(n) AS NodeProperties, properties(r) AS EdgeProperties
+   ```
 
+   ```
+   MATCH (a:Article)
+                MATCH (s:Entity {name: '금융투자업자의 임직원'})-[r:RELATION]->(o:Entity)
+                WHERE r.article = a.number
+                
+   RETURN DISTINCT properties(s) AS sNodeProperties, properties(r) AS EdgeProperties, properties(o) AS oNodeProperties
+   ```
 
 ## 📝 지원되는 PDF 파일
 

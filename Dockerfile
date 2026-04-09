@@ -51,7 +51,7 @@ RUN python3 -m pip install --user poetry && \
 COPY --chown=appuser:appuser pyproject.toml poetry.lock* ./
 
 # 8. 리눅스 환경에 맞게 락 파일 초기화
-RUN rm -f poetry.lock
+# RUN rm -f poetry.lock
 
 # 9. Poetry 의존성 설치
 RUN poetry install --no-root --no-interaction || \

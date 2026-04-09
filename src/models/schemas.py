@@ -1,14 +1,26 @@
+from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from enum import Enum
 
+# class LegalEntity(BaseModel):
+#     """법률 개체"""
+#     article_number: str = Field(description="조항 번호")
+#     concept: str = Field(description="핵심 개념")
+#     subject: Optional[str] = Field(default=None, description="의무 주체")
+#     action: Optional[str] = Field(default=None, description="행위")
+#     object: Optional[str] = Field(default=None, description="대상")
+#     full_text: str = Field(description="원문")
 class LegalEntity(BaseModel):
-    """법률 개체"""
+    """GNN 및 관계 추출에 최적화된 법률 개체"""
     article_number: str = Field(description="조항 번호")
+    structural_index: List[int] = Field(default=[], description="계층 인덱스 [장, 절, 조, 항]")
+    entity_type: str = Field(description="노드 타입 (ACTOR, CONCEPT, REGULATION, PENALTY 등)")
     concept: str = Field(description="핵심 개념")
-    subject: Optional[str] = Field(default=None, description="의무 주체")
+    subject: Optional[str] = Field(default=None, description="의무 주체 (ACTOR일 경우)")
     action: Optional[str] = Field(default=None, description="행위")
     object: Optional[str] = Field(default=None, description="대상")
+    legal_force: Optional[str] = Field(default=None, description="강제성 (MANDATORY, PROHIBITIVE, PERMISSIVE 등)")
     full_text: str = Field(description="원문")
 
 class RelationType(str, Enum):
@@ -40,19 +52,42 @@ class RelationType(str, Enum):
     FOLLOWS_PROCEDURE = "절차를따름" # 신고, 승인, 협의 등 행정 절차 연결
 
 
-class GraphTriplet(BaseModel):
-    """지식 그래프 트리플"""
-    subject: str = Field(description="주체")
-    relation: str = Field(description="관계")
-    object: str = Field(description="대상")
-    article_number: str = Field(description="조항 번호")
-    confidence: float = Field(default=1.0, description="신뢰도")
+# class GraphTriplet(BaseModel):
+#     """지식 그래프 트리플"""
+#     subject: str = Field(description="주체")
+#     relation: str = Field(description="관계")
+#     object: str = Field(description="대상")
+#     article_number: str = Field(description="조항 번호")
+#     confidence: float = Field(default=1.0, description="신뢰도")
 
+class GraphTriplet(BaseModel):
+    """지식 그래프 트리플 (Edge)"""
+    subject: str
+    relation: str
+    relation_category: Optional[str]
+    object: str
+    article_number: str
+    confidence: float
+    concepts: List[str]
+    # 엣지별 생성 시점 추가
+    created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
+    
+# class LegalDocument(BaseModel):
+#     """법률 문서"""
+#     title: str = Field(description="법령명")
+#     law_number: str = Field(description="법령 번호")
+#     content: str = Field(description="법령 내용")
+#     entities: List[LegalEntity] = Field(default_factory=list)
+#     triplets: List[GraphTriplet] = Field(default_factory=list)
 
 class LegalDocument(BaseModel):
-    """법률 문서"""
-    title: str = Field(description="법령명")
-    law_number: str = Field(description="법령 번호")
-    content: str = Field(description="법령 내용")
-    entities: List[LegalEntity] = Field(default_factory=list)
-    triplets: List[GraphTriplet] = Field(default_factory=list)
+    """법률 문서 최상위 컨테이너"""
+    doc_id: str
+    title: str
+    enforcement_date: Optional[str] = None          # ← = None 추가
+    content: str 
+    entities: List[LegalEntity] = Field(default_factory=list)    # ← 기본값 추가
+    triplets: List[GraphTriplet] = Field(default_factory=list)   # ← 기본값 추가
+    
+    # 문서 단위 생성 시점
+    created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))

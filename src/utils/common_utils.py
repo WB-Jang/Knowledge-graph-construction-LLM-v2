@@ -32,9 +32,9 @@ def test_llm_connection() -> bool:
         from llm.llama_client import get_llm as opensource_llm
         llm_getter = opensource_llm
     else:
-        console.print("\n🔍 Gemini API 연결 테스트 중...", style="bold blue")
-        from llm.gemini_client import get_llm as gemini_llm
-        llm_getter = gemini_llm
+        console.print("\n🔍 상용 API 연결 테스트 중...", style="bold blue")
+        from llm.llm_client import get_llm as llm
+        llm_getter = llm
     
     try:
         llm = llm_getter()
