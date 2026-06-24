@@ -12,7 +12,7 @@ from graphs.legal_graph import LegalKnowledgeGraphWorkflow
 from utils.pdf_processor import extract_text_from_pdf, get_pdf_metadata, list_pdf_files
 from utils.text_processor import clean_text, split_articles
 from utils.common_utils import check_gpu, test_llm_connection, save_to_memgraph, display_result_tables
-
+from utils.export_utils import export_all
 # 환경 변수 로드
 load_dotenv()
 
@@ -163,9 +163,12 @@ def main():
         console.print("\n" + "=" * 80, style="bold cyan")
         console.print("✨ 모든 작업이 완료되었습니다!", style="bold green")
         console.print("=" * 80, style="bold cyan")
+        export_all(result)
     else:
         console.print("\n❌ 처리 실패", style="bold red")
         sys.exit(1)
+    
+    
 
 
 if __name__ == "__main__":

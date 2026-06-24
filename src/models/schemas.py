@@ -14,9 +14,9 @@ from enum import Enum
 class LegalEntity(BaseModel):
     """GNN 및 관계 추출에 최적화된 법률 개체"""
     article_number: str = Field(description="조항 번호")
-    structural_index: List[int] = Field(default=[], description="계층 인덱스 [장, 절, 조, 항]")
-    entity_type: str = Field(description="노드 타입 (ACTOR, CONCEPT, REGULATION, PENALTY 등)")
-    concept: str = Field(description="핵심 개념")
+    structural_index: List[Optional[int]] = Field(default=[], description="계층 인덱스 [장, 절, 조, 항]")
+    entity_type: Optional[str] = Field(description="노드 타입 (ACTOR, CONCEPT, REGULATION, PENALTY 등)")
+    concept: Optional[str] = Field(description="핵심 개념")
     subject: Optional[str] = Field(default=None, description="의무 주체 (ACTOR일 경우)")
     action: Optional[str] = Field(default=None, description="행위")
     object: Optional[str] = Field(default=None, description="대상")

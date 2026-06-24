@@ -28,11 +28,11 @@ cp ~/Downloads/저작권법.pdf data/pdfs/
 
 ```bash
 # 프로젝트 루트 디렉토리에서
-python src/process_pdf.py
+python src/process_pdf.py # docker에 설치된 라이브러리를 사용하는 명령어
 
 # 또는 poetry 사용 시
 poetry install
-poetry run python src/process_pdf.py
+poetry run python src/process_pdf.py # poetry 내에 가상환경에 설치된 python 라이브러리를 사용하는 것
 ```
 
 ### 3단계: 대화형 처리

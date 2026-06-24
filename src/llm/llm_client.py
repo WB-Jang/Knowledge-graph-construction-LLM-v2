@@ -79,7 +79,9 @@ class OpenRouterClient:
         api_key: Optional[str] = None,
         model_name: str = None,
         temperature: float = None,
-        max_tokens: int = None
+        max_tokens: int = None,
+        provider_order: Optional[List[str]] = (os.getenv("PROVIDER", "").split(",") if os.getenv("PROVIDER") else None),   # 사용할 provider 목록
+        allow_fallbacks: bool = False
     ):
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
         # :free 접미사가 붙은 모델이 무료
@@ -90,6 +92,10 @@ class OpenRouterClient:
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY가 설정되지 않았습니다. https://openrouter.ai 에서 발급하세요.")
 
+        provider_routing = {}
+        if provider_order:
+            provider_routing["order"] = provider_order
+            provider_routing["allow_fallbacks"] = allow_fallbacks
         # OpenRouter는 OpenAI 호환 엔드포인트 사용
         self.llm = ChatOpenAI(
             model=self.model_name,
@@ -99,7 +105,8 @@ class OpenRouterClient:
             max_tokens=self.max_tokens,
             default_headers={
                 "HTTP-Referer": "https://github.com/WB-Jang/Knowledge-graph-construction-LLM-v2",
-            }
+            },
+            extra_body={"provider": provider_routing} if provider_routing else {},
         )
 
     def get_llm(self):
@@ -167,7 +174,7 @@ def get_llm(provider: str = None):
         return GroqClient().get_llm()
 
     elif provider == "openrouter":
-        print("🦙 OpenRouter API 사용 (Llama 3.3 70B) - 무료")
+        print("🦙 OpenRouter API 사용")
         return OpenRouterClient().get_llm()
 
     elif provider == "gemini":

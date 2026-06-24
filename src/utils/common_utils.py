@@ -26,43 +26,94 @@ def check_gpu():
 def test_llm_connection() -> bool:
     """LLM 연결 테스트"""
     use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
-    
+
     if use_local:
         console.print("\n🔍 로컬 LLM 연결 테스트 중...", style="bold blue")
-        from llm.llama_client import get_llm as opensource_llm
-        llm_getter = opensource_llm
+        from llm.llama_client import get_llm as get_llm_fn
     else:
-        console.print("\n🔍 상용 API 연결 테스트 중...", style="bold blue")
-        from llm.llm_client import get_llm as llm
-        llm_getter = llm
-    
+        console.print("\n🔍 ��용 API 연결 테스트 중...", style="bold blue")
+        from llm.llm_client import get_llm as get_llm_fn  # 'llm' 이름 충돌 제거
+
     try:
-        llm = llm_getter()
-        result = llm.invoke("안녕하세요. 간단히 인사해주세요.")
-        
+        llm_instance = get_llm_fn('openrouter')
+        from langchain_core.messages import HumanMessage
+        result = llm_instance.invoke([HumanMessage(content="안녕하세요. 간단히 인사해주세요.")])
+
         # AIMessage 객체인 경우 content 속성 사용
         if hasattr(result, 'content'):
             response_text = result.content
         else:
             response_text = str(result)
-        
+
         # 응답이 너무 길면 자르기
+        model_nm=os.getenv('OPENROUTER_MODEL')
         display_text = response_text[:100] + "..." if len(response_text) > 100 else response_text
-        console.print(f"✅ LLM 응답: {display_text}", style="green")
+        console.print(f"✅ LLM({model_nm}) 응답: {display_text}", style="green")
         return True
     except Exception as e:
         console.print(f"❌ LLM 연결 실패: {e}", style="bold red")
-        
+
         if not use_local:
-            console.print("\n⚠️ Gemini API 설정을 확인하세요:", style="bold yellow")
-            console.print(f"   GOOGLE_API_KEY: {'설정됨' if os.getenv('GOOGLE_API_KEY') else '미설정'}")
-            console.print("\n💡 Google AI Studio에서 API 키 발급:")
-            console.print("   https://makersuite.google.com/app/apikey")
+            provider = os.getenv("LLM_PROVIDER", "groq").lower()
+            if provider == "openrouter":
+                console.print("\n⚠️ OpenRouter API 설정을 확인하세요:", style="bold yellow")
+                console.print(f"   OPENROUTER_API_KEY: {'설정됨' if os.getenv('OPENROUTER_API_KEY') else '미설정'}")
+                console.print("\n💡 OpenRouter에서 API 키 발급:")
+                console.print("   https://openrouter.ai/keys")
+            elif provider == "groq":
+                console.print("\n⚠️ Groq API 설정을 확인하세요:", style="bold yellow")
+                console.print(f"   GROQ_API_KEY: {'설정됨' if os.getenv('GROQ_API_KEY') else '미설정'}")
+            else:
+                console.print("\n⚠️ Gemini API 설정을 확인하세요:", style="bold yellow")
+                console.print(f"   GOOGLE_API_KEY: {'설정됨' if os.getenv('GOOGLE_API_KEY') else '미설정'}")
+                console.print("\n💡 Google AI Studio에서 API 키 발급:")
+                console.print("   https://makersuite.google.com/app/apikey")
         else:
             console.print("\n⚠️ llama-cpp API 설정을 확인하세요:", style="bold yellow")
             console.print(f"   API URL: {os.getenv('LLAMA_CPP_API_URL', 'Not set')}")
-        
+
         return False
+
+# def test_llm_connection() -> bool:
+#     """LLM 연결 테스트"""
+#     use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
+    
+#     if use_local:
+#         console.print("\n🔍 로컬 LLM 연결 테스트 중...", style="bold blue")
+#         from llm.llama_client import get_llm as opensource_llm
+#         llm_getter = opensource_llm
+#     else:
+#         console.print("\n🔍 상용 API 연결 테스트 중...", style="bold blue")
+#         from llm.llm_client import get_llm as get_llm_fn
+#         llm_getter = get_llm_fn('openrouter')
+    
+#     try:
+#         llm = llm_getter()
+#         result = llm.invoke("안녕하세요. 간단히 인사해주세요.")
+        
+#         # AIMessage 객체인 경우 content 속성 사용
+#         if hasattr(result, 'content'):
+#             response_text = result.content
+#         else:
+#             response_text = str(result)
+        
+#         # 응답이 너무 길면 자르기
+#         display_text = response_text[:100] + "..." if len(response_text) > 100 else response_text
+#         console.print(f"✅ LLM 응답: {display_text}", style="green")
+#         return True
+#     except Exception as e:
+#         console.print(f"❌ LLM 연결 실패: {e}", style="bold red")
+        
+#         if not use_local:
+#             console.print("\n⚠️ Gemini API 설정을 확인하세요:", style="bold yellow")
+#             console.print(f"   GOOGLE_API_KEY: {'설정됨' if os.getenv('GOOGLE_API_KEY') else '미설정'}")
+#             console.print("\n💡 Google AI Studio에서 API 키 발급:")
+#             console.print("   https://makersuite.google.com/app/apikey")
+#         else:
+#             console.print("\n⚠️ llama-cpp API 설정을 확인하세요:", style="bold yellow")
+#             console.print(f"   API URL: {os.getenv('LLAMA_CPP_API_URL', 'Not set')}")
+        
+#         return False
 
 
 def save_to_memgraph(document: LegalDocument, clear_existing: bool = False):
@@ -121,7 +172,7 @@ def display_result_tables(result: LegalDocument, max_items: int = 10):
         for entity in result.entities[:max_items]:
             entity_table.add_row(
                 entity.article_number,
-                entity.concept[:30],
+                (entity.concept or "-")[:30],  # None 방어 처리
                 entity.subject or "-",
                 entity.action or "-"
             )

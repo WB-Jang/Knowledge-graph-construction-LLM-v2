@@ -1,7 +1,7 @@
 import os
 from typing import List, Dict, Any
 from neo4j import GraphDatabase
-from src.models.schemas import LegalDocument
+from models.schemas import LegalDocument
 
 
 class MemgraphClient:
@@ -48,6 +48,7 @@ class MemgraphClient:
     def save_document(self, document: LegalDocument):
         """법률 문서를 Memgraph에 저장"""
         with self.driver.session() as session:
+            model_nm=os.getenv('OPENROUTER_MODEL')
 
             # 1. 문서 노드 생성 (doc_id 기준 MERGE로 중복 방지)
             session.run("""
@@ -74,7 +75,8 @@ class MemgraphClient:
                         a.action           = $action,
                         a.object           = $object,
                         a.legal_force      = $legal_force,
-                        a.full_text        = $full_text
+                        a.full_text        = $full_text,
+                        a.model_nm         = $model_nm    
                     MERGE (d)-[:CONTAINS]->(a)
                 """,
                     doc_id=document.doc_id,
@@ -87,6 +89,7 @@ class MemgraphClient:
                     object=entity.object,
                     legal_force=entity.legal_force,                         # ← 추가
                     full_text=entity.full_text,
+                    model_nm=model_nm,
                 )
 
             # 3. 트리플 관계 생성

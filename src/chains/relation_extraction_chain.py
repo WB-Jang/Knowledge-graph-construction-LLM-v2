@@ -10,7 +10,7 @@ class RelationExtractionChain:
     """법률 관계 추출 체인"""
     
     def __init__(self, temperature: float = 0.0):
-        self.llm = llm('groq')
+        self.llm = llm('openrouter')
         # self.llm = opensource_llm() # 추후에 변경해서도 테스트 가능
         self.temperature = temperature
         # JSON 리스트를 파싱하도록 변경
