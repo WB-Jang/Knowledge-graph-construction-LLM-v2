@@ -4,8 +4,16 @@ The formatter (mistral-nemo) converts PDF-extracted text into a structured
 Markdown format where each article begins with a '## 제N조' heading. This makes
 downstream regex splitting deterministic and reliable.
 
-Safety: if the LLM output is shorter than 80% of the input, the raw input is
-returned unchanged to avoid truncation bugs.
+Long documents are split into chunks before formatting so that a small model
+is never asked to echo back tens of thousands of characters in a single call
+(which causes truncation / near-empty responses). Each chunk is formatted
+independently and the results are concatenated.
+
+Safety: if a chunk's output is shorter than 80% of that chunk's input, the raw
+chunk is kept unchanged to avoid silently dropping content.
+
+Debug: set FORMATTER_DEBUG=true to print a preview of each chunk's raw LLM
+output (useful for diagnosing refusals / empty responses).
 """
 import os
 from langchain_core.prompts import ChatPromptTemplate
@@ -29,6 +37,30 @@ FORMATTER_HUMAN = """다음 법령 텍스트를 Markdown 형식으로 변환하�
 
 {text}"""
 
+# 청크당 최대 입력 문자 수 (작은 모델이 안정적으로 처리할 수 있는 크기)
+FORMATTER_CHUNK_SIZE = int(os.getenv("FORMATTER_CHUNK_SIZE", "8000"))
+FORMATTER_DEBUG = os.getenv("FORMATTER_DEBUG", "false").lower() == "true"
+
+
+def _split_into_chunks(text: str, chunk_size: int) -> list:
+    """Split text into chunks of ~chunk_size chars, breaking on paragraph
+    boundaries (blank lines) so that articles are not cut mid-sentence."""
+    paragraphs = text.split("\n\n")
+    chunks: list = []
+    buf: list = []
+    buf_len = 0
+    for para in paragraphs:
+        para_len = len(para) + 2  # account for the "\n\n" separator
+        # 단일 문단이 청크 한도보다 크면 그대로 독립 청크로 둠
+        if buf and buf_len + para_len > chunk_size:
+            chunks.append("\n\n".join(buf))
+            buf, buf_len = [], 0
+        buf.append(para)
+        buf_len += para_len
+    if buf:
+        chunks.append("\n\n".join(buf))
+    return chunks
+
 
 class FormattingChain:
     """LLM-based Markdown normalizer for Korean legal texts."""
@@ -41,15 +73,47 @@ class FormattingChain:
         ])
         self.chain = prompt | self.llm | StrOutputParser()
 
-    def format(self, text: str) -> str:
-        """Normalize text to Markdown. Falls back to raw text if output is too short."""
+    def _format_chunk(self, text: str, idx: int, total: int) -> str:
+        """Format a single chunk; fall back to raw text if it looks truncated."""
         try:
-            result = self.chain.invoke({"text": text})
-            # Safety: reject if LLM truncated (< 80% character count)
-            if len(result.strip()) < len(text) * 0.8:
-                print(f"⚠️  Formatter output too short ({len(result)} vs {len(text)} chars); using raw text")
-                return text
-            return result.strip()
+            result = self.chain.invoke({"text": text}).strip()
         except Exception as e:
-            print(f"⚠️  Formatter LLM failed ({e}); using raw text")
+            print(f"⚠️  [formatter] chunk {idx}/{total} LLM 호출 실패 ({e}); 원문 사용")
             return text
+
+        if FORMATTER_DEBUG:
+            preview = result[:300].replace("\n", "\\n")
+            print(f"🔎 [formatter-debug] chunk {idx}/{total} "
+                  f"in={len(text)} out={len(result)} chars")
+            print(f"🔎 [formatter-debug] chunk {idx} 출력 미리보기: {preview!r}")
+
+        # Safety: reject if the model truncated this chunk (< 80% char count)
+        if len(result) < len(text) * 0.8:
+            print(f"⚠️  [formatter] chunk {idx}/{total} 출력이 너무 짧음 "
+                  f"({len(result)} vs {len(text)} chars); 해당 청크는 원문 사용")
+            return text
+        return result
+
+    def format(self, text: str) -> str:
+        """Normalize text to Markdown, chunking long inputs.
+
+        Each chunk falls back to its raw text on failure, so partial formatting
+        is preserved instead of discarding the whole document.
+        """
+        chunks = _split_into_chunks(text, FORMATTER_CHUNK_SIZE)
+        if len(chunks) > 1:
+            print(f"🧩 [formatter] 입력 {len(text)}자를 {len(chunks)}개 청크로 분할 "
+                  f"(청크당 ~{FORMATTER_CHUNK_SIZE}자)")
+
+        formatted_parts = [
+            self._format_chunk(chunk, i + 1, len(chunks))
+            for i, chunk in enumerate(chunks)
+        ]
+        combined = "\n\n".join(formatted_parts).strip()
+
+        # 전체가 비정상적으로 짧으면(모든 청크 실패) 최종 안전망으로 원문 반환
+        if len(combined) < len(text) * 0.8:
+            print(f"⚠️  [formatter] 전체 출력이 너무 짧음 "
+                  f"({len(combined)} vs {len(text)} chars); 원문 전체 사용")
+            return text
+        return combined

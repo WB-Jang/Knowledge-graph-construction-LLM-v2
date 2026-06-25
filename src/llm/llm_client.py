@@ -26,7 +26,7 @@ class GeminiClient:
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
         self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-09-2025")
         self.temperature = temperature if temperature is not None else float(os.getenv("LLM_TEMPERATURE", "0.0"))
-        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "2048"))
+        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "4096"))
 
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY가 설정되지 않았습니다.")
@@ -61,7 +61,7 @@ class GroqClient:
         # 무료 Llama 70B 모델명
         self.model_name = model_name or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         self.temperature = temperature if temperature is not None else float(os.getenv("LLM_TEMPERATURE", "0.0"))
-        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "2048"))
+        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "4096"))
 
         if not self.api_key:
             raise ValueError("GROQ_API_KEY가 설정되지 않았습니다. https://console.groq.com 에서 발급하세요.")
@@ -93,7 +93,7 @@ class OpenRouterClient:
         # :free 접미사가 붙은 모델이 무료
         self.model_name = model_name or os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
         self.temperature = temperature if temperature is not None else float(os.getenv("LLM_TEMPERATURE", "0.0"))
-        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "2048"))
+        self.max_tokens = max_tokens or int(os.getenv("LLM_MAX_TOKENS", "4096"))
 
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY가 설정되지 않았습니다. https://openrouter.ai 에서 발급하세요.")
@@ -126,7 +126,7 @@ class LlamaCppClient(LLM):
     api_key: Optional[str] = Field(default_factory=lambda: os.getenv("LLAMA_CPP_API_KEY"))
     model_name: str = Field(default_factory=lambda: os.getenv("LLM_MODEL_NAME", "default"))
     temperature: float = Field(default_factory=lambda: float(os.getenv("LLM_TEMPERATURE", "0.0")))
-    max_tokens: int = Field(default_factory=lambda: int(os.getenv("LLM_MAX_TOKENS", "2048")))
+    max_tokens: int = Field(default_factory=lambda: int(os.getenv("LLM_MAX_TOKENS", "4096")))
     timeout: int = Field(default_factory=lambda: int(os.getenv("LLM_TIMEOUT", "120")))
 
     @property
@@ -160,10 +160,17 @@ class LlamaCppClient(LLM):
         return {"api_url": self.api_url, "model_name": self.model_name}
 
 
-def get_formatter_llm():
-    """Formatter LLM — small/fast model for Markdown normalization (mistral-nemo)"""
+def get_formatter_llm(max_tokens: int = None):
+    """Formatter LLM — small/fast model for Markdown normalization (mistral-nemo).
+
+    The formatter must echo back (nearly) the full input as Markdown, so it needs
+    a much larger output budget than extraction tasks. Defaults to
+    FORMATTER_MAX_TOKENS (env) or 16000.
+    """
     model = os.getenv("FORMATTER_MODEL", "mistralai/mistral-nemo")
-    return OpenRouterClient(model_name=model).get_llm()
+    if max_tokens is None:
+        max_tokens = int(os.getenv("FORMATTER_MAX_TOKENS", "16000"))
+    return OpenRouterClient(model_name=model, max_tokens=max_tokens).get_llm()
 
 
 def get_generator_llm():
