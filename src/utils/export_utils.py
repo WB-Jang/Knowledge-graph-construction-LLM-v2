@@ -15,9 +15,9 @@ def _make_output_dir(base_name: str) -> str:
 def export_nodes_csv(entities: List[LegalEntity], filepath: str):
     """노드를 CSV로 저장"""
     fieldnames = [
-        "article_number", "structural_index", "entity_type",
+        "article_number", "hang_number", "article_title", "structural_index", "entity_type",
         "concept", "subject", "action", "object",
-        "legal_force", "full_text",
+        "legal_force", "full_text", "cross_law_refs", "intra_law_refs",
         "pipeline_version", "generator_model", "evaluator_model", "eval_score", "retry_count"
     ]
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
@@ -26,6 +26,8 @@ def export_nodes_csv(entities: List[LegalEntity], filepath: str):
         for e in entities:
             writer.writerow({
                 "article_number": e.article_number,
+                "hang_number": e.hang_number if e.hang_number is not None else "",
+                "article_title": e.article_title or "",
                 "structural_index": str(e.structural_index),
                 "entity_type": e.entity_type,
                 "concept": e.concept,
@@ -34,6 +36,8 @@ def export_nodes_csv(entities: List[LegalEntity], filepath: str):
                 "object": e.object or "",
                 "legal_force": e.legal_force or "",
                 "full_text": e.full_text.replace("\n", " "),
+                "cross_law_refs": "; ".join(e.cross_law_refs),
+                "intra_law_refs": "; ".join(e.intra_law_refs),
                 "pipeline_version": e.pipeline_version or "",
                 "generator_model": e.generator_model or "",
                 "evaluator_model": e.evaluator_model or "",
@@ -69,9 +73,9 @@ def export_triplets_csv(triplets: List[GraphTriplet], filepath: str):
 def export_nodes_tsv(entities: List[LegalEntity], filepath: str):
     """노드를 TSV로 저장"""
     fieldnames = [
-        "article_number", "structural_index", "entity_type",
+        "article_number", "hang_number", "article_title", "structural_index", "entity_type",
         "concept", "subject", "action", "object",
-        "legal_force", "full_text",
+        "legal_force", "full_text", "cross_law_refs", "intra_law_refs",
         "pipeline_version", "generator_model", "evaluator_model", "eval_score", "retry_count"
     ]
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
@@ -80,6 +84,8 @@ def export_nodes_tsv(entities: List[LegalEntity], filepath: str):
         for e in entities:
             writer.writerow({
                 "article_number": e.article_number,
+                "hang_number": e.hang_number if e.hang_number is not None else "",
+                "article_title": e.article_title or "",
                 "structural_index": str(e.structural_index),
                 "entity_type": e.entity_type,
                 "concept": e.concept,
@@ -88,6 +94,8 @@ def export_nodes_tsv(entities: List[LegalEntity], filepath: str):
                 "object": e.object or "",
                 "legal_force": e.legal_force or "",
                 "full_text": e.full_text.replace("\n", " "),
+                "cross_law_refs": "; ".join(e.cross_law_refs),
+                "intra_law_refs": "; ".join(e.intra_law_refs),
                 "pipeline_version": e.pipeline_version or "",
                 "generator_model": e.generator_model or "",
                 "evaluator_model": e.evaluator_model or "",

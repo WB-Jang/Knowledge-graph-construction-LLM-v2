@@ -71,8 +71,9 @@ class MemgraphClient:
             for entity in document.entities:
                 session.run("""
                     MATCH (d:Document {doc_id: $doc_id})
-                    MERGE (a:Article {number: $number, doc_id: $doc_id})
-                    SET a.entity_type      = $entity_type,
+                    MERGE (a:Article {number: $number, hang: $hang, doc_id: $doc_id})
+                    SET a.article_title    = $article_title,
+                        a.entity_type      = $entity_type,
                         a.structural_index = $structural_index,
                         a.concept          = $concept,
                         a.subject          = $subject,
@@ -80,6 +81,8 @@ class MemgraphClient:
                         a.object           = $object,
                         a.legal_force      = $legal_force,
                         a.full_text        = $full_text,
+                        a.cross_law_refs   = $cross_law_refs,
+                        a.intra_law_refs   = $intra_law_refs,
                         a.pipeline_version = $pipeline_version,
                         a.generator_model  = $generator_model,
                         a.evaluator_model  = $evaluator_model,
@@ -89,6 +92,8 @@ class MemgraphClient:
                 """,
                     doc_id=document.doc_id,
                     number=entity.article_number,
+                    hang=entity.hang_number if entity.hang_number is not None else 0,
+                    article_title=entity.article_title,
                     entity_type=entity.entity_type,
                     structural_index=entity.structural_index,
                     concept=entity.concept,
@@ -97,6 +102,8 @@ class MemgraphClient:
                     object=entity.object,
                     legal_force=entity.legal_force,
                     full_text=entity.full_text,
+                    cross_law_refs=entity.cross_law_refs,
+                    intra_law_refs=entity.intra_law_refs,
                     pipeline_version=entity.pipeline_version or document.pipeline_version,
                     generator_model=entity.generator_model or document.generator_model,
                     evaluator_model=entity.evaluator_model or document.evaluator_model,

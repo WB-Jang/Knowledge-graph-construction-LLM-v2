@@ -172,33 +172,47 @@ def split_markdown_articles(text: str) -> Dict[str, List[Dict]]:
 # 인지하도록 한다. structural_index = [장, 절, 조, 항].
 # ──────────────────────────────────────────────────────────────────────────────
 
-# 문제 4: 타 법령 조항 참조 패턴 — 「법령명」 제N조 또는 법령명(따옴표 없음) 제N조
-# 이 패턴 안에 있는 '제N조' 는 본 법령 조항이 아니므로 경계로 인식하면 안 됨.
+# 타 법령 조항 참조 패턴 — 「법령명」 제N조[제M항][제M호] (HGT 학습용 핵심 특성)
+# 본 법령 조항이 아니므로 경계로 인식하면 안 되고, cross_law_refs로 별도 기록한다.
 _CROSS_LAW_REF_RE = re.compile(
-    r'「[^」]+」\s*제\s*\d+\s*조|'      # 「보험업법」 제2조
-    r'『[^』]+』\s*제\s*\d+\s*조|'      # 『...』 제N조
-    r'〔[^〕]+〕\s*제\s*\d+\s*조|'      # 〔...〕 제N조
-    r'(?:같은\s*법|동법|해당\s*법|본\s*법\s*제외)\s*제\s*\d+\s*조'  # 같은 법 제N조
+    r'(?:「[^」]+」|『[^』]+』|〔[^〕]+〕|같은\s*법|동법|해당\s*법)'
+    r'\s*제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?'
+)
+
+# 본 법령 내부 조항 상호참조 — 「법명」 없이 등장하는 제N조[제M항][제M호]
+# (예: "제16조제1항부터 제3항까지", "제12조제1항 및 같은 조 제2항")
+# 이는 본 법령의 다른 조항을 가리키는 그래프 엣지(REFERS_TO)로 활용.
+_INTRA_LAW_REF_RE = re.compile(
+    r'제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?'
 )
 
 
 def extract_cross_law_refs(text: str) -> List[str]:
-    """텍스트에서 타 법령 조항 참조 목록을 반환한다 (디버그·컨텍스트 주입용)."""
-    return [m.group(0) for m in _CROSS_LAW_REF_RE.finditer(text)]
+    """타 법령(「법명」 명시) 조항 참조 목록. HGT가 다법령 통합 추론을 학습하는 핵심 특성."""
+    return [re.sub(r'\s+', ' ', m.group(0)).strip()
+            for m in _CROSS_LAW_REF_RE.finditer(text)]
 
 
-def _mask_cross_law_refs(text: str) -> str:
-    """타 법령 참조 내의 '제N조' 표현을 파서가 경계로 오인하지 않도록 임시 마스킹."""
-    # 「법명」 안의 공백을 제거하고, 제N조를 __XREF__N__으로 치환
-    def _replace(m):
-        return re.sub(r'제\s*(\d+)\s*조', r'__XREF__\1__', m.group(0))
-    return _CROSS_LAW_REF_RE.sub(_replace, text)
+def extract_intra_law_refs(text: str) -> List[str]:
+    """본 법령 내부 조항 상호참조 목록 (타 법령 참조는 제외). REFERS_TO 엣지용."""
+    # 타 법령 참조 구간을 먼저 제거해 중복 집계 방지
+    masked = _CROSS_LAW_REF_RE.sub(" ", text)
+    refs = []
+    for m in _INTRA_LAW_REF_RE.finditer(masked):
+        ref = re.sub(r'\s+', '', m.group(0))
+        refs.append(ref)
+    return refs
 
 
 _CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
 _CIRCLED_TO_INT = {c: i + 1 for i, c in enumerate(_CIRCLED)}
 
-_ARTICLE_BOUNDARY_RE = re.compile(r'(제\s*\d+\s*조(?:의\s*\d+)?|부\s*칙(?:\s*<[^>]*>)?)')
+# 조 경계: '제N조' 뒤에 '(제목)' 괄호가 오는 실제 조 헤딩만 인정한다.
+# 내부 참조(제16조제1항 → 뒤에 '제'), 인용(제5조, → 뒤에 ',', 제33조에 → 뒤에 '에')은
+# 괄호가 따라오지 않으므로 경계로 잡히지 않는다. 부칙은 괄호 없이 인정.
+_ARTICLE_BOUNDARY_RE = re.compile(
+    r'(제\s*\d+\s*조(?:의\s*\d+)?(?=\s*\()|부\s*칙(?:\s*<[^>]*>)?)'
+)
 _ARTICLE_NUM_RE = re.compile(r'제\s*(\d+)\s*조(?:의\s*(\d+))?')
 _CHAPTER_FINDER = re.compile(r'제\s*(\d+)\s*장')
 _SECTION_FINDER = re.compile(r'제\s*(\d+)\s*절')
@@ -212,11 +226,11 @@ HANG_MAX_CHARS = int(os.getenv("HANG_MAX_CHARS", "3000"))
 
 
 def _make_unit(article_number, hang_number, structural_index, full_text,
-               article_title, is_addendum, cross_law_refs=None):
+               article_title, is_addendum, cross_law_refs=None, intra_law_refs=None):
     """항 단위 딕셔너리를 생성한다.
 
-    cross_law_refs: 이 항에서 참조하는 타 법령 조항 목록 (문제 4).
-                    LLM이 이를 보고 타 법령 참조임을 인지할 수 있도록 메타데이터로 포함.
+    cross_law_refs: 타 법령(「법명」) 조항 참조 — HGT 다법령 통합 추론 학습용 핵심 특성.
+    intra_law_refs: 본 법령 내부 조항 상호참조 — REFERS_TO 엣지용.
     """
     if len(full_text) > HANG_MAX_CHARS:
         label = f"{article_number}" + (f" 항{hang_number}" if hang_number else "")
@@ -230,6 +244,7 @@ def _make_unit(article_number, hang_number, structural_index, full_text,
         "article_title": article_title,
         "is_addendum": is_addendum,
         "cross_law_refs": cross_law_refs or [],
+        "intra_law_refs": intra_law_refs or [],
     }
 
 
@@ -239,7 +254,7 @@ def _split_block_into_hang(block, article_number, article_int, chapter, section,
 
     문제 1 대응: 각 항 full_text 앞에 조 제목(stem)을 붙여 "이 조항", "이 자" 같은
     대명사를 LLM이 맥락으로 해소할 수 있도록 한다.
-    문제 4 대응: 항별로 타 법령 참조를 추출해 cross_law_refs 메타데이터로 저장한다.
+    항별로 타 법령 참조(cross)와 본 법령 내부 참조(intra)를 각각 추출해 저장한다.
     """
     hang_positions = [(m.start(), _CIRCLED_TO_INT[m.group(0)])
                       for m in _HANG_FINDER.finditer(block)]
@@ -249,20 +264,23 @@ def _split_block_into_hang(block, article_number, article_int, chapter, section,
     stem = clean_text(block[:stem_end])
 
     if not hang_positions:
-        refs = extract_cross_law_refs(block)
+        clean_block = clean_text(block)
         return [_make_unit(article_number, None, [chapter, section, article_int, None],
-                           clean_text(block), article_title, is_addendum, refs)]
+                           clean_block, article_title, is_addendum,
+                           extract_cross_law_refs(clean_block),
+                           extract_intra_law_refs(clean_block))]
 
     units = []
     for j, (pos, hno) in enumerate(hang_positions):
         end = hang_positions[j + 1][0] if j + 1 < len(hang_positions) else len(block)
         hang_text = block[pos:end]
         # 조 제목(stem)을 context로 앞에 부착 → "이 조항"="stem에 정의된 해당 조항" 해소
-        full = f"{stem}\n{hang_text}".strip() if stem else hang_text.strip()
-        refs = extract_cross_law_refs(hang_text)
+        full = clean_text(f"{stem}\n{hang_text}".strip() if stem else hang_text.strip())
         units.append(_make_unit(article_number, hno,
                                 [chapter, section, article_int, hno],
-                                clean_text(full), article_title, is_addendum, refs))
+                                full, article_title, is_addendum,
+                                extract_cross_law_refs(hang_text),
+                                extract_intra_law_refs(hang_text)))
     return units
 
 
@@ -274,22 +292,16 @@ def split_into_units(text: str) -> Dict[str, List[Dict]]:
       main_raw  : 본문 전체 항 단위
       back_raw  : 부칙 항 단위
 
-    문제 4 대응: 타 법령 참조(「보험업법」 제2조 등) 내의 '제N조'를 임시 마스킹해
-    파서가 잘못된 조 경계를 만들지 않도록 한다.
+    조 경계는 '제N조(제목)'(괄호가 따라오는 헤딩)과 부칙만 인정하므로, 내부 참조
+    (제16조제1항)나 타 법령 참조(「보험업법」 제2조에)는 경계로 잡히지 않는다.
+    드물게 타 법령 참조가 괄호를 동반하는 경우를 대비해, 타 법령 참조 구간 내
+    경계는 추가로 배제한다.
     """
-    # 타 법령 참조 내 '제N조'를 마스킹한 사본으로 경계를 탐색
-    masked = _mask_cross_law_refs(text)
-    matches = list(_ARTICLE_BOUNDARY_RE.finditer(masked))
-    # 실제 텍스트 추출은 원본(text) 기준 offset으로 수행 — masked는 길이가 같음을 보장 못하므로
-    # 대신 masked offset을 원본에도 동일하게 사용(치환 전후 문자 수가 다를 수 있으므로
-    # 보수적으로: 원본에서 동일한 정규식으로 재탐색하되 타 법령 참조는 건너뜀)
-    raw_matches = []
-    for m in list(_ARTICLE_BOUNDARY_RE.finditer(text)):
-        # 이 위치가 타 법령 참조 내부인지 확인
-        if not any(ref.start() <= m.start() < ref.end()
-                   for ref in _CROSS_LAW_REF_RE.finditer(text)):
-            raw_matches.append(m)
-    matches = raw_matches
+    cross_spans = [(m.start(), m.end()) for m in _CROSS_LAW_REF_RE.finditer(text)]
+    matches = [
+        m for m in _ARTICLE_BOUNDARY_RE.finditer(text)
+        if not any(s <= m.start() < e for s, e in cross_spans)
+    ]
     if not matches:
         return {
             "front_raw": [],

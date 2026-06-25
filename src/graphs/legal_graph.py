@@ -164,6 +164,7 @@ class LegalKnowledgeGraphWorkflow:
             entity.hang_number = hang_no
             entity.article_title = entry.get("article_title")
             entity.cross_law_refs = cross_refs
+            entity.intra_law_refs = entry.get("intra_law_refs", [])
             if entry.get("structural_index"):
                 entity.structural_index = entry["structural_index"]
             entity.pipeline_version = self.pipeline_version
