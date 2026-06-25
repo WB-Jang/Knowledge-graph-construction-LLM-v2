@@ -35,23 +35,33 @@ class RelationType(str, Enum):
     REFERS_TO = "참조함"           # 단순 인용 및 참조
     APPLIES_MUTATIS_MUTANDIS = "준용함" # 다른 조항을 성질에 맞게 적용
     DELEGATES_TO = "위임함"        # 하위 법령(시행령/규칙)으로 세부사항 위임
-    
+
     # --- 논리 및 효력 관계 ---
     EXCEPTION_TO = "예외로함"       # 일반 원칙에 대한 특례
+    EXCLUDES = "제외함"            # 특정 대상·경우를 범위에서 제외
     SUPERSEDES = "우선함"          # 특별법 우선의 원칙 등 상충 시 우선순위
     BASED_ON = "근거함"            # 행정 처분 등의 법적 근거
-    
+    DEEMED_AS = "간주함"           # …으로 본다 / …으로 간주
+
     # --- 행위 및 규제 관계 ---
     DEFINES = "정의함"             # 용어 또는 개념의 정의
+    CONSTITUTES = "구성함"         # …에 해당함 / …을 구성함
     REQUIRES = "요구함"            # 작위 의무 (해야 한다)
     PROHIBITS = "금지함"           # 부작위 의무 (해서는 안 된다)
     ALLOWS = "허용함"              # 권리 부여 또는 허가 사항
-    
+    GUARANTEES = "보장함"          # 독립성·지위·권한 보장
+    INSPECTS = "점검함"            # 준수 여부 점검·감독
+    CORRECTS = "시정함"            # 위반사항 시정·개선 요구
+
+    # --- 보고 및 협력 관계 ---
+    REPORTS_TO = "보고함"          # 결과·의견 등을 기관에 보고
+    COOPERATES_WITH = "협조함"     # 업무 협조·지원 의무
+
     # --- 제재 및 책임 관계 ---
     PUNISHMENT_FOR = "처벌대상임"    # 형벌(징역, 벌금) 대상
     PENALTY_FOR = "과태료대상임"     # 행정질서벌(과태료) 대상
     RESPONSIBLE_FOR = "책임이있음"   # 손해배상 등 민사적 책임
-    
+
     # --- 주체 및 절차 관계 ---
     HAS_AUTHORITY = "권한을가짐"    # 행정 주체의 직무 범위
     APPLIES_TO = "적용대상임"       # 법 적용을 받는 주체/대상 명시
