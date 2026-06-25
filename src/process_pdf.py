@@ -102,10 +102,11 @@ def process_pdf_document(pdf_path: str):
         # 워크플로우 실행
         console.print("\n🚀 법률 지식 그래프 생성 시작...", style="bold green")
         workflow = LegalKnowledgeGraphWorkflow()
-        
-        with console.status("[bold green]처리 중...", spinner="dots"):
-            result = workflow.process(document)
-        
+
+        # 주의: console.status(Live 스피너)로 감싸면 내부 print 진행 로그가
+        # 스피너에 덮여 보이지 않으므로, 진행 상황이 보이도록 그대로 실행한다.
+        result = workflow.process(document)
+
         # 결과 출력
         console.print(f"   처리 완료!", style="bold green")
         console.print(f"   추출된 조항: {len(result.entities)}개")

@@ -101,11 +101,14 @@ class LegalKnowledgeGraphWorkflow:
 
     # ── Step 0 ───────────────────────────────────────────────────────────────
     def _format_text(self, state: GraphState) -> GraphState:
+        print("\n[1/5] 📝 Markdown 포맷팅 중...")
         state["formatted_text"] = self.formatter.format(state["raw_text"])
+        print(f"[1/5] ✅ 포맷팅 완료 ({len(state['formatted_text'])}자)")
         return state
 
     # ── Step 1 ───────────────────────────────────────────────────────────────
     def _split_articles(self, state: GraphState) -> GraphState:
+        print("\n[2/5] ✂️  조항 분할 중...")
         text = state["formatted_text"]
         result = split_markdown_articles(text)
 
@@ -123,6 +126,8 @@ class LegalKnowledgeGraphWorkflow:
 
         state["categorized_text"] = result
         state["current_index"] = 0
+        print(f"[2/5] ✅ 분할 완료 (본문 {len(result['main_raw'])}개, "
+              f"전문 {len(result['front_raw'])}개, 부칙 {len(result['back_raw'])}개 조항)")
         return state
 
     # ── Step 2 ───────────────────────────────────────────────────────────────
@@ -130,13 +135,18 @@ class LegalKnowledgeGraphWorkflow:
         """Entity extraction with Generator LLM; override deterministic fields."""
         main_raw = state["categorized_text"]["main_raw"]
         entities: List[LegalEntity] = []
+        total = len(main_raw)
+        print(f"\n[3/5] 🔍 개체(노드) 추출 중... (총 {total}개 조항)")
 
-        for entry in main_raw:
+        for i, entry in enumerate(main_raw, 1):
             full_text = entry["full_text"]
             parsed_number = entry.get("article_number", "")
             parsed_index = entry.get("structural_index", [])
 
             entity = self.entity_chain.extract(full_text)
+            label = (parsed_number if parsed_number and parsed_number != "N/A"
+                     else (entity.article_number or "N/A"))
+            print(f"  [{i}/{total}] 🔹 {label} 개체 추출: concept='{entity.concept}'")
             if parsed_number and parsed_number != "N/A":
                 entity.article_number = parsed_number
             if parsed_index:
@@ -156,6 +166,7 @@ class LegalKnowledgeGraphWorkflow:
         state["document"].pipeline_version = self.pipeline_version
         state["document"].generator_model = self.generator_model
         state["document"].evaluator_model = self.evaluator_model
+        print(f"[3/5] ✅ 개체 추출 완료 ({len(entities)}개, 글로벌 {len(global_entities)}개)")
         return state
 
     # ── Step 3 ───────────────────────────────────────────────────────────────
@@ -169,8 +180,11 @@ class LegalKnowledgeGraphWorkflow:
         entities = state["entities"]
         global_entities = state.get("global_entities", [])
         accumulated_entities: List[LegalEntity] = []  # entities accepted so far (for local context)
+        total = len(entities)
+        print(f"\n[4/5] 🔗 관계(엣지) 추출 + 평가 중... (총 {total}개 조항)")
 
-        for entity in entities:
+        for idx, entity in enumerate(entities, 1):
+            print(f"  [{idx}/{total}] 🔸 {entity.article_number or 'N/A'} 관계 추출 시작")
             local_context = accumulated_entities[-3:]
 
             # 정적 글로벌 컨텍스트(앞 3개 조항) + (옵션) 의미 유사도 기반 동적 컨텍스트
@@ -257,11 +271,14 @@ class LegalKnowledgeGraphWorkflow:
 
         state["triplets"] = all_triplets
         state["document"].triplets = all_triplets
+        print(f"[4/5] ✅ 관계 추출 완료 (총 {len(all_triplets)}개 트리플)")
         return state
 
     # ── Step 4 ───────────────────────────────────────────────────────────────
     def _validate_graph(self, state: GraphState) -> GraphState:
         """Dedup triplets; keep highest-confidence copy of each (s,r,o) key."""
+        print("\n[5/5] 🧹 그래프 중복 제거 중...")
+        before = len(state["triplets"])
         unique: Dict = {}
         for triplet in state["triplets"]:
             key = (triplet.subject, triplet.relation, triplet.object)
@@ -269,6 +286,7 @@ class LegalKnowledgeGraphWorkflow:
                 unique[key] = triplet
         state["triplets"] = list(unique.values())
         state["document"].triplets = state["triplets"]
+        print(f"[5/5] ✅ 중복 제거 완료 ({before} → {len(state['triplets'])}개 트리플)")
         return state
 
     # ── Public entry point ───────────────────────────────────────────────────
