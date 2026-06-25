@@ -1,39 +1,40 @@
-# ──────────────────────────────────────────────────────────────────────────────
-# Local CPU 테스트용 최소 의존성 (OpenRouter 단일 프로바이더 기준)
+# ==============================================================================
+# Minimal dependencies for local CPU testing (OpenRouter single provider)
 #
-# 설치:
+# Install:
 #   python -m venv .venv
-#   source .venv/bin/activate        # Windows: .venv\Scripts\activate
+#   source .venv/bin/activate         # Windows: .venv\Scripts\activate
 #   pip install -r requirements.txt
 #
-# GPU(torch)·형태소분석기(konlpy/kiwipiepy)·FastAPI 등은 현재 파이프라인 실행에
-# 필요하지 않으므로 제외했습니다. Memgraph 저장을 건너뛰면 neo4j도 선택 사항입니다.
-# (Groq·Gemini 등 다른 프로바이더는 requirements-optional.txt 참고)
-# ──────────────────────────────────────────────────────────────────────────────
+# GPU (torch), Korean morph analyzers (konlpy/kiwipiepy), and FastAPI are NOT
+# needed by the current pipeline and are excluded. neo4j is only used for the
+# optional Memgraph save step. Other providers (Groq/Gemini) live in
+# requirements-optional.txt.
+# ==============================================================================
 
-# LangChain / LangGraph 코어
+# LangChain / LangGraph core
 langchain>=0.3.0,<0.4.0
 langchain-core>=0.3.0,<0.4.0
 langchain-community>=0.3.0,<0.4.0
 langgraph>=0.2.0,<0.3.0
 
-# OpenRouter (OpenAI 호환 엔드포인트)
+# OpenRouter (OpenAI-compatible endpoint)
 langchain-openai>=0.2.0,<0.3.0
 
-# 데이터 모델 / 설정
+# Data models / settings
 pydantic>=2.5.0,<3.0.0
 python-dotenv>=1.0.0,<2.0.0
 
-# 그래프 데이터베이스 (Memgraph, Bolt 프로토콜) — 저장 단계에서만 사용
+# Graph database (Memgraph, Bolt protocol) - used only in the save step
 neo4j>=5.14.0,<6.0.0
 
-# PDF 텍스트 추출
+# PDF text extraction
 PyMuPDF>=1.23.0,<1.24.0
 
 # HTTP
 httpx>=0.26.0,<0.28.0
 requests>=2.31.0,<3.0.0
 
-# 콘솔 출력 / 진행률
+# Console output / progress
 rich>=13.7.0,<14.0.0
 tqdm>=4.66.1,<5.0.0

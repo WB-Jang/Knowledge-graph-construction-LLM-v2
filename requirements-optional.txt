@@ -1,20 +1,20 @@
-# ──────────────────────────────────────────────────────────────────────────────
-# 선택적 의존성 — 필요할 때만 설치하세요.
+# ==============================================================================
+# Optional dependencies - install only when needed.
 #   pip install -r requirements-optional.txt
-# ──────────────────────────────────────────────────────────────────────────────
+# ==============================================================================
 
-# 대체 LLM 프로바이더
+# Alternative LLM providers
 langchain-groq>=0.2.0,<0.3.0              # Groq (Llama 70B)
 langchain-google-genai>=2.0.0,<3.0.0      # Google Gemini
 google-generativeai>=0.8.0,<0.9.0
 
-# GPU 확인용 (check_gpu). 미설치 시 자동으로 CPU 모드 안내만 출력됩니다.
+# GPU check (check_gpu). If not installed, the app just prints a CPU-mode notice.
 # torch>=2.1.0,<3.0.0
 
-# 그래프 시각화 / 분석
+# Graph visualization / analysis
 networkx>=3.2.1,<4.0.0
 matplotlib>=3.8.2,<4.0.0
 
-# 한국어 형태소 분석 (현재 파이프라인 미사용)
-# konlpy>=0.6.0,<0.7.0      # Java(JVM) 필요
+# Korean morphological analysis (not used by the current pipeline)
+# konlpy>=0.6.0,<0.7.0      # requires Java (JVM)
 # kiwipiepy>=0.16.0,<0.17.0
