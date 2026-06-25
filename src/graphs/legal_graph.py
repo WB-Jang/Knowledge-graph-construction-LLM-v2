@@ -8,6 +8,7 @@ Architecture (per article):
 """
 import csv
 import os
+import re
 from datetime import datetime
 from typing import List, TypedDict, Optional, Dict
 
@@ -111,12 +112,27 @@ class LegalKnowledgeGraphWorkflow:
         print("\n[2/5] ✂️  조항 분할 중...")
         text = state["formatted_text"]
         result = split_markdown_articles(text)
+        md_count = len(result["main_raw"])
 
-        if not result["main_raw"]:
-            print("⚠️  Markdown splitter found no articles; falling back to regex parser")
-            legacy = split_and_categorize_articles(text)
+        # 완전성(Completeness) 가드:
+        # 포맷터가 일부 청크만 마크다운으로 변환하고 나머지는 원문으로 폴백하면,
+        # split_markdown_articles는 '## 제N조' 헤딩이 있는 조항만 잡아 나머지를
+        # 통째로 누락한다. 따라서 '원문' 기준 정규식 파서와 개수를 비교해,
+        # 마크다운이 유의미하게 적게 잡으면 정규식 결과(원문 전체)로 대체한다.
+        legacy = split_and_categorize_articles(state["raw_text"])
+        regex_count = len(legacy["main_raw"])
+
+        if md_count == 0 or regex_count > md_count:
+            print(f"⚠️  Markdown 분할 {md_count}개 vs 정규식(원문) {regex_count}개 — "
+                  f"누락 방지를 위해 정규식 파서 결과 사용")
+
+            def _num_from_text(t: str) -> str:
+                m = re.match(r'\s*(제\s*\d+\s*조(?:의\s*\d+)?)', t)
+                return m.group(1).replace(" ", "") if m else "N/A"
+
             def _wrap(items, addendum=False):
-                return [{"article_number": "N/A", "structural_index": [], "full_text": t, "is_addendum": addendum}
+                return [{"article_number": _num_from_text(t), "structural_index": [],
+                         "full_text": t, "is_addendum": addendum}
                         for t in items]
             result = {
                 "front_raw": _wrap(legacy["front_raw"]),
