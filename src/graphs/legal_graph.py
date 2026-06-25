@@ -1,18 +1,37 @@
+"""Legal Knowledge Graph workflow — Pipeline v2.
+
+Architecture (per article):
+  format_text → split_articles → for each article:
+    extract_entity → extract_relations → rule_validate
+    → llm_evaluate → [PASS → collect] | [FAIL → reflect & retry (max 3×) → DLQ]
+  → validate_graph (global dedup)
+"""
+import csv
 import os
-from typing import List, TypedDict, Optional
+from datetime import datetime
+from typing import List, TypedDict, Optional, Dict
+
 from langgraph.graph import StateGraph, END
 
 from models.schemas import LegalEntity, GraphTriplet, LegalDocument
 from chains.formatting_chain import FormattingChain
 from chains.entity_extraction_chain import EntityExtractionChain
 from chains.relation_extraction_chain import RelationExtractionChain
+from chains.evaluator_chain import EvaluatorChain, EvaluationResult
+from validators.rule_validator import validate_article_triplets
 from utils.text_processor import split_markdown_articles, split_and_categorize_articles
+
+MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
+DLQ_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "data", "output", "dead_letter_queue.csv"
+)
 
 
 class GraphState(TypedDict):
     raw_text: str
-    formatted_text: str              # Markdown-normalized by Formatter LLM
-    categorized_text: dict           # Parsed article dicts
+    formatted_text: str
+    categorized_text: dict
     entities: List[LegalEntity]
     global_entities: List[LegalEntity]
     triplets: List[GraphTriplet]
@@ -21,18 +40,31 @@ class GraphState(TypedDict):
     errors: List[str]
 
 
-class LegalKnowledgeGraphWorkflow:
-    """법률 지식 그래프 생성 워크플로우 (v2)
+def _append_dlq(article_number: str, full_text: str, reason: str, feedback: str):
+    """Append a failed article to the Dead Letter Queue CSV."""
+    os.makedirs(os.path.dirname(DLQ_PATH), exist_ok=True)
+    write_header = not os.path.exists(DLQ_PATH)
+    with open(DLQ_PATH, "a", newline="", encoding="utf-8-sig") as f:
+        writer = csv.DictWriter(f, fieldnames=["timestamp", "article_number", "reason", "feedback", "full_text"])
+        if write_header:
+            writer.writeheader()
+        writer.writerow({
+            "timestamp": datetime.now().isoformat(),
+            "article_number": article_number,
+            "reason": reason,
+            "feedback": feedback,
+            "full_text": full_text.replace("\n", " "),
+        })
 
-    Pipeline:
-      format_text → split_articles → extract_entities
-        → extract_relations → validate_graph
-    """
+
+class LegalKnowledgeGraphWorkflow:
+    """법률 지식 그래프 생성 워크플로우 (v2)"""
 
     def __init__(self):
         self.formatter = FormattingChain()
         self.entity_chain = EntityExtractionChain()
         self.relation_chain = RelationExtractionChain()
+        self.evaluator = EvaluatorChain()
         self.pipeline_version = os.getenv("PIPELINE_VERSION", "2.0")
         self.generator_model = os.getenv("GENERATOR_MODEL", "google/gemma-4-26b-a4b-it")
         self.evaluator_model = os.getenv("EVALUATOR_MODEL", "deepseek/deepseek-v4-flash")
@@ -56,40 +88,35 @@ class LegalKnowledgeGraphWorkflow:
 
         return workflow.compile()
 
-    # ── Step 0: LLM Markdown normalization ──────────────────────────────────
+    # ── Step 0 ───────────────────────────────────────────────────────────────
     def _format_text(self, state: GraphState) -> GraphState:
-        """Normalize raw PDF text to Markdown via Formatter LLM (mistral-nemo).
-        Falls back to raw text if LLM output is too short (80% threshold)."""
         state["formatted_text"] = self.formatter.format(state["raw_text"])
         return state
 
-    # ── Step 1: Article splitting ────────────────────────────────────────────
+    # ── Step 1 ───────────────────────────────────────────────────────────────
     def _split_articles(self, state: GraphState) -> GraphState:
-        """Split Markdown text into article dicts with structural_index.
-        Falls back to legacy regex parser if no ## headings found."""
         text = state["formatted_text"]
-
         result = split_markdown_articles(text)
-        # Fallback: if Markdown splitter found nothing, use legacy regex parser
+
         if not result["main_raw"]:
             print("⚠️  Markdown splitter found no articles; falling back to regex parser")
             legacy = split_and_categorize_articles(text)
-            # Wrap plain strings as minimal dicts
+            def _wrap(items, addendum=False):
+                return [{"article_number": "N/A", "structural_index": [], "full_text": t, "is_addendum": addendum}
+                        for t in items]
             result = {
-                "front_raw": [{"article_number": "N/A", "structural_index": [], "full_text": t, "is_addendum": False} for t in legacy["front_raw"]],
-                "main_raw":  [{"article_number": "N/A", "structural_index": [], "full_text": t, "is_addendum": False} for t in legacy["main_raw"]],
-                "back_raw":  [{"article_number": "N/A", "structural_index": [], "full_text": t, "is_addendum": True}  for t in legacy["back_raw"]],
+                "front_raw": _wrap(legacy["front_raw"]),
+                "main_raw":  _wrap(legacy["main_raw"]),
+                "back_raw":  _wrap(legacy["back_raw"], addendum=True),
             }
 
         state["categorized_text"] = result
         state["current_index"] = 0
         return state
 
-    # ── Step 2: Entity extraction ────────────────────────────────────────────
+    # ── Step 2 ───────────────────────────────────────────────────────────────
     def _extract_entities(self, state: GraphState) -> GraphState:
-        """Extract LegalEntity for each article in main_raw.
-        structural_index and article_number from the parser override LLM output
-        to avoid hallucination."""
+        """Entity extraction with Generator LLM; override deterministic fields."""
         main_raw = state["categorized_text"]["main_raw"]
         entities: List[LegalEntity] = []
 
@@ -99,18 +126,16 @@ class LegalKnowledgeGraphWorkflow:
             parsed_index = entry.get("structural_index", [])
 
             entity = self.entity_chain.extract(full_text)
-            # Override with deterministic parser output
             if parsed_number and parsed_number != "N/A":
                 entity.article_number = parsed_number
             if parsed_index:
                 entity.structural_index = parsed_index
-            # Attach pipeline metadata
             entity.pipeline_version = self.pipeline_version
             entity.generator_model = self.generator_model
+            entity.evaluator_model = self.evaluator_model
 
             entities.append(entity)
 
-        # Identify global (front) entities by article_number
         front_numbers = {e.get("article_number") for e in state["categorized_text"]["front_raw"]}
         global_entities = [e for e in entities if e.article_number in front_numbers]
 
@@ -122,50 +147,105 @@ class LegalKnowledgeGraphWorkflow:
         state["document"].evaluator_model = self.evaluator_model
         return state
 
-    # ── Step 3: Relation extraction ──────────────────────────────────────────
+    # ── Step 3 ───────────────────────────────────────────────────────────────
     def _extract_relations(self, state: GraphState) -> GraphState:
-        """Extract GraphTriplets using sliding-window local context + global context."""
-        triplets: List[GraphTriplet] = []
+        """Relation extraction with Generator LLM + rule validation + LLM evaluation.
+
+        Per-article reflection loop: rule_validate → llm_evaluate → regenerate if FAIL.
+        After MAX_RETRIES failures the article is written to the DLQ.
+        """
+        all_triplets: List[GraphTriplet] = []
         entities = state["entities"]
         global_entities = state.get("global_entities", [])
+        accumulated_entities: List[LegalEntity] = []  # entities accepted so far (for local context)
 
-        for i, entity in enumerate(entities):
-            local_context = entities[max(0, i - 3):i]
-            try:
-                result = self.relation_chain.extract(
-                    entity=entity,
+        for entity in entities:
+            local_context = accumulated_entities[-3:]
+            feedback: Optional[str] = None
+            accepted = False
+
+            for attempt in range(MAX_RETRIES + 1):
+                # Extract relations (with feedback from previous failed attempt if any)
+                entity_for_extract = entity
+                if feedback and attempt > 0:
+                    # Prepend feedback to the entity's full_text so the LLM sees it
+                    import copy
+                    entity_for_extract = copy.copy(entity)
+                    entity_for_extract.full_text = (
+                        f"[이전 평가 피드백: {feedback}]\n\n{entity.full_text}"
+                    )
+
+                raw_triplets = self.relation_chain.extract(
+                    entity=entity_for_extract,
                     local_context=local_context,
                     global_context=global_entities,
                 )
-                # Attach pipeline metadata to each triplet
-                for t in result:
+
+                # Attach metadata
+                for t in raw_triplets:
                     t.pipeline_version = self.pipeline_version
                     t.generator_model = self.generator_model
                     t.evaluator_model = self.evaluator_model
-                triplets.extend(result)
-            except Exception as e:
-                state["errors"].append(f"Relation extraction error for {entity.article_number}: {e}")
+                    t.retry_count = attempt
 
-        state["triplets"] = triplets
-        state["document"].triplets = triplets
+                # Rule-based validation (zero cost)
+                valid_triplets, rule_errors = validate_article_triplets(entity, raw_triplets)
+                if rule_errors:
+                    print(f"  ❌ [rule] {entity.article_number} attempt {attempt+1}: {rule_errors}")
+
+                # LLM evaluation (deepseek-v4-flash) — full coverage, no sampling
+                eval_result: EvaluationResult = self.evaluator.evaluate(entity, valid_triplets)
+                score = eval_result.score
+
+                # Attach eval metadata to entity and triplets
+                entity.eval_score = score
+                entity.retry_count = attempt
+                for t in valid_triplets:
+                    t.eval_score = score
+                    t.retry_count = attempt
+
+                print(f"  {'✅' if eval_result.passed else '❌'} [eval] {entity.article_number} "
+                      f"attempt {attempt+1}/{MAX_RETRIES+1} score={score:.2f} verdict={eval_result.verdict}")
+
+                if eval_result.passed:
+                    all_triplets.extend(valid_triplets)
+                    accepted = True
+                    break
+
+                feedback = eval_result.feedback
+                if attempt == MAX_RETRIES:
+                    # All retries exhausted — write to DLQ
+                    print(f"  ⛔ [DLQ] {entity.article_number} failed after {MAX_RETRIES+1} attempts")
+                    _append_dlq(
+                        article_number=entity.article_number,
+                        full_text=entity.full_text,
+                        reason=eval_result.reason,
+                        feedback=eval_result.feedback,
+                    )
+                    state["errors"].append(
+                        f"DLQ: {entity.article_number} — {eval_result.reason}"
+                    )
+
+            accumulated_entities.append(entity)
+
+        state["triplets"] = all_triplets
+        state["document"].triplets = all_triplets
         return state
 
-    # ── Step 4: Graph validation ─────────────────────────────────────────────
+    # ── Step 4 ───────────────────────────────────────────────────────────────
     def _validate_graph(self, state: GraphState) -> GraphState:
-        """Deduplicate triplets; keep highest-confidence copy of each (s,r,o) key."""
-        unique: dict = {}
+        """Dedup triplets; keep highest-confidence copy of each (s,r,o) key."""
+        unique: Dict = {}
         for triplet in state["triplets"]:
             key = (triplet.subject, triplet.relation, triplet.object)
             if key not in unique or triplet.confidence > unique[key].confidence:
                 unique[key] = triplet
-
         state["triplets"] = list(unique.values())
         state["document"].triplets = state["triplets"]
         return state
 
     # ── Public entry point ───────────────────────────────────────────────────
     def process(self, document: LegalDocument) -> LegalDocument:
-        """Run the full pipeline and return an enriched LegalDocument."""
         initial_state: GraphState = {
             "raw_text": document.content,
             "formatted_text": "",
