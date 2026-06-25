@@ -1,5 +1,5 @@
 import re
-from typing import List, Dict
+from typing import List, Dict, Optional, Tuple
 
 # Old vresion parser
 def split_articles(text: str) -> List[str]:
@@ -60,6 +60,103 @@ def split_and_categorize_articles(text: str) -> Dict[str, List[str]]:
         "back_raw": addenda,          # 문서 메타데이터(시행일) 추출용
         "main_raw": articles          # 일반적인 엔터티 추출을 돌릴 전체 조항
     }
+
+def _parse_structural_index(chapter: Optional[int], section: Optional[int], article: int) -> List[Optional[int]]:
+    """Build [장, 절, 조] structural index. None means the unit hasn't appeared yet."""
+    return [chapter, section, article]
+
+
+def split_markdown_articles(text: str) -> Dict[str, List[Dict]]:
+    """Parse Markdown-formatted legal text produced by FormattingChain.
+
+    Returns a dict with keys:
+      front_raw  – first 3 article dicts (purpose / definitions / scope)
+      main_raw   – all article dicts from the main body
+      back_raw   – addenda article dicts (부칙)
+
+    Each article dict has:
+      article_number   – e.g. "제1조" or "제1조의2"
+      structural_index – [장, 절, 조] List[Optional[int]]
+      full_text        – the raw text of that article
+      is_addendum      – True if inside 부칙
+    """
+    lines = text.splitlines()
+
+    current_chapter: Optional[int] = None
+    current_section: Optional[int] = None
+    in_addendum: bool = False
+
+    articles: List[Dict] = []
+    addenda: List[Dict] = []
+
+    current_article: Optional[str] = None
+    current_buf: List[str] = []
+    current_index: List[Optional[int]] = []
+
+    chapter_re = re.compile(r'^#+\s*제\s*(\d+)\s*장')
+    section_re = re.compile(r'^#+\s*제\s*(\d+)\s*절')
+    addendum_re = re.compile(r'^#+\s*부\s*칙')
+    article_re = re.compile(r'^##\s*(제\s*\d+\s*조(?:의\s*\d+)?)\s*(.*)')
+
+    def _flush():
+        nonlocal current_article, current_buf
+        if current_article is not None:
+            body = "\n".join(current_buf).strip()
+            entry = {
+                "article_number": current_article,
+                "structural_index": list(current_index),
+                "full_text": body,
+                "is_addendum": in_addendum,
+            }
+            if in_addendum:
+                addenda.append(entry)
+            else:
+                articles.append(entry)
+        current_article = None
+        current_buf = []
+
+    for line in lines:
+        chap_m = chapter_re.match(line)
+        sec_m = section_re.match(line)
+        add_m = addendum_re.match(line)
+        art_m = article_re.match(line)
+
+        if chap_m:
+            _flush()
+            current_chapter = int(chap_m.group(1))
+            current_section = None
+        elif sec_m:
+            _flush()
+            current_section = int(sec_m.group(1))
+        elif add_m:
+            _flush()
+            in_addendum = True
+            # Reset article counter context for addendum
+            current_chapter = None
+            current_section = None
+        elif art_m:
+            _flush()
+            raw_num = art_m.group(1).replace(" ", "")
+            num_m = re.search(r'(\d+)', raw_num)
+            article_num = int(num_m.group(1)) if num_m else 0
+            current_article = raw_num
+            current_index = _parse_structural_index(current_chapter, current_section, article_num)
+            # Include heading line in full_text
+            current_buf = [line]
+        else:
+            if current_article is not None:
+                current_buf.append(line)
+
+    _flush()
+
+    front_context = articles[:3] if len(articles) >= 3 else articles[:]
+
+    return {
+        "front_raw": front_context,
+        "main_raw": articles,
+        "back_raw": addenda,
+    }
+
 
 def clean_text(text: str) -> str:
     """텍스트 정제"""

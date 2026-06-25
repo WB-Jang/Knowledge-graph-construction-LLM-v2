@@ -1,22 +1,14 @@
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
-# from langchain_core.exceptions import OutputParserException
 from typing import List
 from models.schemas import LegalEntity
-from llm.llm_client import get_llm as llm
-# import json
-# from llm.llama_client import get_llm as opensource_llm
+from llm.llm_client import get_generator_llm
 
-class EntityExtractionChain:  
+class EntityExtractionChain:
     """법률 개체 추출 체인"""
-    
+
     def __init__(self, temperature: float = 0.0):
-        self.llm = llm('openrouter')
-        # Args:
-        # provider: "gemini" | "groq" | "openrouter" | "local"
-        #           None이면 환경변수 LLM_PROVIDER 확인 (기본값: "groq")
-        # # self.llm = opensource_llm() # 추후에 변경해서도 테스트 가능
-        # Gemini는 temperature를 생성 시 지정
+        self.llm = get_generator_llm()
         self.temperature = temperature
         self.parser = PydanticOutputParser(pydantic_object=LegalEntity)
         
