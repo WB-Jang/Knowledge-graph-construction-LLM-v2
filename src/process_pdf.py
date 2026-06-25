@@ -86,7 +86,7 @@ def process_pdf_document(pdf_path: str):
 
         metadata = get_pdf_metadata(pdf_path)
         
-        console.print(f"✅ PDF 읽기 완료 - {len(content)} 문자, {metadata['pages']} 페이지, {len(articles)} 조항", style="green")
+        console.print(f"✅ PDF 읽기 완료 - {len(content)} 문자, {metadata['pages']} 페이지", style="green")
         
         # 법률 문서 객체 생성
         title = metadata.get('title') or metadata.get('subject') or Path(pdf_path).stem
