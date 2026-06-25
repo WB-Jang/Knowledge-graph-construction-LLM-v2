@@ -13,7 +13,7 @@ from enum import Enum
 #     full_text: str = Field(description="원문")
 class LegalEntity(BaseModel):
     """GNN 및 관계 추출에 최적화된 법률 개체"""
-    article_number: str = Field(description="조항 번호")
+    article_number: Optional[str] = Field(default=None, description="조항 번호")
     structural_index: List[Optional[int]] = Field(default=[], description="계층 인덱스 [장, 절, 조, 항]")
     entity_type: Optional[str] = Field(description="노드 타입 (ACTOR, CONCEPT, REGULATION, PENALTY 등)")
     concept: Optional[str] = Field(description="핵심 개념")
@@ -72,7 +72,7 @@ class GraphTriplet(BaseModel):
     relation: str
     relation_category: Optional[str]
     object: str
-    article_number: str
+    article_number: Optional[str] = None
     confidence: float
     concepts: List[str]
     created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
