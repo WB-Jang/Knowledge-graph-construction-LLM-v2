@@ -19,8 +19,8 @@ from chains.formatting_chain import FormattingChain
 from chains.entity_extraction_chain import EntityExtractionChain
 from chains.relation_extraction_chain import RelationExtractionChain
 from chains.evaluator_chain import EvaluatorChain, EvaluationResult
-from validators.rule_validator import validate_article_triplets
-from utils.text_processor import split_markdown_articles, split_and_categorize_articles
+from validators.rule_validator import validate_article_triplets, flush_unknown_relations
+from utils.text_processor import split_into_units
 
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
 # 의미 유사도 기반 동적 글로벌 컨텍스트 (옵션, 기본 비활성화)
@@ -109,71 +109,71 @@ class LegalKnowledgeGraphWorkflow:
 
     # ── Step 1 ───────────────────────────────────────────────────────────────
     def _split_articles(self, state: GraphState) -> GraphState:
-        print("\n[2/5] ✂️  조항 분할 중...")
-        text = state["formatted_text"]
-        result = split_markdown_articles(text)
-        md_count = len(result["main_raw"])
+        """계층적 파서(조>항)로 항 단위 추출 단위를 만든다.
 
-        # 완전성(Completeness) 가드:
-        # 포맷터가 일부 청크만 마크다운으로 변환하고 나머지는 원문으로 폴백하면,
-        # split_markdown_articles는 '## 제N조' 헤딩이 있는 조항만 잡아 나머지를
-        # 통째로 누락한다. 따라서 '원문' 기준 정규식 파서와 개수를 비교해,
-        # 마크다운이 유의미하게 적게 잡으면 정규식 결과(원문 전체)로 대체한다.
-        legacy = split_and_categorize_articles(state["raw_text"])
-        regex_count = len(legacy["main_raw"])
+        정규화된 텍스트와 원문(raw) 각각에 대해 파싱한 뒤, 더 많은 단위를 만든
+        쪽을 채택한다(완전성 가드). 정규화 LLM이 항 마커를 훼손해도 원문 파싱이
+        받쳐주므로 조항·항 누락을 방지한다.
+        """
+        print("\n[2/5] ✂️  조항·항 단위 분할 중...")
 
-        if md_count == 0 or regex_count > md_count:
-            print(f"⚠️  Markdown 분할 {md_count}개 vs 정규식(원문) {regex_count}개 — "
-                  f"누락 방지를 위해 정규식 파서 결과 사용")
+        normalized = split_into_units(state["formatted_text"])
+        raw = split_into_units(state["raw_text"])
 
-            def _num_from_text(t: str) -> str:
-                m = re.match(r'\s*(제\s*\d+\s*조(?:의\s*\d+)?)', t)
-                return m.group(1).replace(" ", "") if m else "N/A"
-
-            def _wrap(items, addendum=False):
-                return [{"article_number": _num_from_text(t), "structural_index": [],
-                         "full_text": t, "is_addendum": addendum}
-                        for t in items]
-            result = {
-                "front_raw": _wrap(legacy["front_raw"]),
-                "main_raw":  _wrap(legacy["main_raw"]),
-                "back_raw":  _wrap(legacy["back_raw"], addendum=True),
-            }
+        # 더 많은 단위를 만든 쪽 채택 (누락 방지). 동률이면 정규화본 우선.
+        if len(raw["main_raw"]) > len(normalized["main_raw"]):
+            print(f"⚠️  정규화본 {len(normalized['main_raw'])}단위 vs 원문 "
+                  f"{len(raw['main_raw'])}단위 — 누락 방지를 위해 원문 파싱 결과 사용")
+            result = raw
+        else:
+            result = normalized
 
         state["categorized_text"] = result
         state["current_index"] = 0
-        print(f"[2/5] ✅ 분할 완료 (본문 {len(result['main_raw'])}개, "
-              f"전문 {len(result['front_raw'])}개, 부칙 {len(result['back_raw'])}개 조항)")
+        # 통계: 고유 조 개수와 항 단위 개수
+        unique_articles = {u["article_number"] for u in result["main_raw"]}
+        print(f"[2/5] ✅ 분할 완료 (조 {len(unique_articles)}개 → 항 단위 "
+              f"{len(result['main_raw'])}개, 전문 {len(result['front_raw'])}개, "
+              f"부칙 {len(result['back_raw'])}개)")
         return state
 
     # ── Step 2 ───────────────────────────────────────────────────────────────
     def _extract_entities(self, state: GraphState) -> GraphState:
-        """Entity extraction with Generator LLM; override deterministic fields."""
+        """항 단위 개체 추출. 결정론적 필드(article_number, hang_number,
+        article_title, structural_index)는 파서 값으로 덮어씌운다."""
         main_raw = state["categorized_text"]["main_raw"]
         entities: List[LegalEntity] = []
         total = len(main_raw)
-        print(f"\n[3/5] 🔍 개체(노드) 추출 중... (총 {total}개 조항)")
+        print(f"\n[3/5] 🔍 개체(노드) 추출 중... (총 {total}개 항 단위)")
 
         for i, entry in enumerate(main_raw, 1):
-            full_text = entry["full_text"]
-            parsed_number = entry.get("article_number", "")
-            parsed_index = entry.get("structural_index", [])
+            art_no = entry.get("article_number") or "N/A"
+            hang_no = entry.get("hang_number")
+            label = f"{art_no}" + (f" ({'①②③④⑤⑥⑦⑧⑨⑩'[hang_no-1] if hang_no and hang_no <= 10 else f'항{hang_no}'})"
+                                   if hang_no else "")
 
-            entity = self.entity_chain.extract(full_text)
-            label = (parsed_number if parsed_number and parsed_number != "N/A"
-                     else (entity.article_number or "N/A"))
-            print(f"  [{i}/{total}] 🔹 {label} 개체 추출: concept='{entity.concept}'")
-            if parsed_number and parsed_number != "N/A":
-                entity.article_number = parsed_number
-            if parsed_index:
-                entity.structural_index = parsed_index
+            cross_refs = entry.get("cross_law_refs", [])
+            law_title = state["document"].title
+            entity = self.entity_chain.extract(entry["full_text"], cross_refs, law_title)
+            print(f"  [{i}/{total}] 🔹 {label} 개체 추출: concept='{entity.concept}'"
+                  + (f" [타법참조 {len(cross_refs)}건]" if cross_refs else ""))
+
+            # 결정론적 파서 값으로 덮어쓰기 (LLM이 틀려도 구조는 보존)
+            if art_no and art_no != "N/A":
+                entity.article_number = art_no
+            entity.hang_number = hang_no
+            entity.article_title = entry.get("article_title")
+            entity.cross_law_refs = cross_refs
+            if entry.get("structural_index"):
+                entity.structural_index = entry["structural_index"]
             entity.pipeline_version = self.pipeline_version
             entity.generator_model = self.generator_model
             entity.evaluator_model = self.evaluator_model
 
             entities.append(entity)
 
-        front_numbers = {e.get("article_number") for e in state["categorized_text"]["front_raw"]}
+        # 글로벌 컨텍스트: front_raw에 속한 조 번호 집합
+        front_numbers = {u["article_number"] for u in state["categorized_text"]["front_raw"]}
         global_entities = [e for e in entities if e.article_number in front_numbers]
 
         state["entities"] = entities
@@ -182,7 +182,9 @@ class LegalKnowledgeGraphWorkflow:
         state["document"].pipeline_version = self.pipeline_version
         state["document"].generator_model = self.generator_model
         state["document"].evaluator_model = self.evaluator_model
-        print(f"[3/5] ✅ 개체 추출 완료 ({len(entities)}개, 글로벌 {len(global_entities)}개)")
+        unique_arts = {e.article_number for e in entities}
+        print(f"[3/5] ✅ 개체 추출 완료 (조 {len(unique_arts)}개 → 항 단위 {len(entities)}개, "
+              f"글로벌 {len(global_entities)}개)")
         return state
 
     # ── Step 3 ───────────────────────────────────────────────────────────────
@@ -200,7 +202,9 @@ class LegalKnowledgeGraphWorkflow:
         print(f"\n[4/5] 🔗 관계(엣지) 추출 + 평가 중... (총 {total}개 조항)")
 
         for idx, entity in enumerate(entities, 1):
-            print(f"  [{idx}/{total}] 🔸 {entity.article_number or 'N/A'} 관계 추출 시작")
+            hang_label = (f" ({'①②③④⑤⑥⑦⑧⑨⑩'[entity.hang_number-1] if entity.hang_number and entity.hang_number <= 10 else f'항{entity.hang_number}'})"
+                          if entity.hang_number else "")
+            print(f"  [{idx}/{total}] 🔸 {entity.article_number or 'N/A'}{hang_label} 관계 추출 시작")
             local_context = accumulated_entities[-3:]
 
             # 정적 글로벌 컨텍스트(앞 3개 조항) + (옵션) 의미 유사도 기반 동적 컨텍스트
@@ -236,6 +240,7 @@ class LegalKnowledgeGraphWorkflow:
                     entity=entity_for_extract,
                     local_context=local_context,
                     global_context=effective_global,
+                    law_title=state["document"].title,
                 )
 
                 # Attach metadata
@@ -325,5 +330,8 @@ class LegalKnowledgeGraphWorkflow:
             print(f"⚠️  Warning: {len(final_state['errors'])} errors occurred")
             for error in final_state["errors"]:
                 print(f"  - {error}")
+
+        # 문제 5: 세션 내 미등록 relation을 CSV로 기록 (enum 확장 검토용)
+        flush_unknown_relations()
 
         return final_state["document"]

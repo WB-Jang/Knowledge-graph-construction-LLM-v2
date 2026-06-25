@@ -1,19 +1,18 @@
-"""Formatter chain: normalizes raw legal text into Markdown using a small/fast LLM.
+"""Formatter chain: TEXT NORMALIZATION of PDF-extracted Korean legal text.
 
-The formatter (mistral-nemo) converts PDF-extracted text into a structured
-Markdown format where each article begins with a '## 제N조' heading. This makes
-downstream regex splitting deterministic and reliable.
+역할(중요): 이 체인은 '구조 표시(## 제N조 등)'를 하지 않는다. 조/항/호 구조
+분할은 결정론적 계층 파서(utils.text_processor.split_into_units)가 담당한다.
+포맷터 LLM의 역할은 오직 '텍스트 정규화'다:
+  - PDF 추출 과정에서 한 문장이 여러 줄로 깨진 것을 다시 잇기
+  - 페이지 머리말/꼬리말, 쪽번호 등 잡음 제거
+  - 항 마커(①②③)가 (1)/1 등으로 훼손된 경우 원문자(①②③)로 복원
+구조를 새로 만들거나 내용을 요약/삭제하지 않는다.
 
-Long documents are split into chunks before formatting so that a small model
-is never asked to echo back tens of thousands of characters in a single call
-(which causes truncation / near-empty responses). Each chunk is formatted
-independently and the results are concatenated.
+긴 문서는 청크로 나눠 정규화한다(작은 모델이 한 번에 수만 자를 처리하다
+절삭/반복하는 것을 방지). 청크별로 길이 비율이 안전 범위를 벗어나면(절삭 또는
+반복/환각) 해당 청크는 원문을 그대로 사용한다.
 
-Safety: if a chunk's output is shorter than 80% of that chunk's input, the raw
-chunk is kept unchanged to avoid silently dropping content.
-
-Debug: set FORMATTER_DEBUG=true to print a preview of each chunk's raw LLM
-output (useful for diagnosing refusals / empty responses).
+Debug: FORMATTER_DEBUG=true 로 청크별 LLM 원본 출력 미리보기를 출력.
 """
 import os
 from langchain_core.prompts import ChatPromptTemplate
@@ -21,19 +20,21 @@ from langchain_core.output_parsers import StrOutputParser
 
 from llm.llm_client import get_formatter_llm
 
-FORMATTER_SYSTEM = """당신은 한국 법령 문서 전문 포맷터입니다.
-입력된 법령 원문 텍스트를 정확히 아래 Markdown 형식으로 변환하세요.
+FORMATTER_SYSTEM = """당신은 한국 법령 원문을 정리(정규화)하는 전문가입니다.
+PDF에서 추출되어 줄바꿈·잡음이 섞인 법령 텍스트를 깨끗한 원문으로 복원하세요.
 
 규칙:
-1. 각 조항(제N조)은 반드시 '## 제N조' 형식의 헤딩으로 시작합니다.
-2. 장(章)과 절(節) 제목은 '# 제N장 제목' 또는 '### 제N절 제목' 형식으로 표기합니다.
-3. 부칙은 '## 부칙' 헤딩으로 표기합니다.
-4. 각 항(項)은 별도 줄에 유지합니다. 호(號)는 들여쓰기 없이 번호를 유지합니다.
-5. 원문 내용을 생략하거나 요약하지 마세요. 모든 텍스트를 보존하세요.
-6. 출력은 변환된 Markdown만 포함해야 합니다. 설명이나 주석을 추가하지 마세요.
+1. 구조 표시(##, #, 마크다운 헤딩, 번호 재부여)를 하지 마세요. 조/항 구조는
+   별도 시스템이 처리합니다.
+2. PDF 추출로 인해 한 문장이 여러 줄로 잘린 경우, 자연스러운 문장으로 다시 이으세요.
+3. 페이지 번호, 머리말/꼬리말, 반복되는 법령명 헤더 등 본문이 아닌 잡음을 제거하세요.
+4. 항 번호가 (1),(2) 또는 1,2 등으로 훼손되었으면 원문자 ①②③…로 복원하세요.
+5. 조문 번호(제N조), 항(①②③), 호(1. 2.), 목(가. 나.)의 텍스트는 절대 변경/삭제하지 마세요.
+6. 내용을 요약·생략·창작하지 마세요. 모든 조문 내용을 그대로 보존하세요.
+7. 출력은 정리된 법령 본문 텍스트만 포함합니다. 설명·주석을 붙이지 마세요.
 """
 
-FORMATTER_HUMAN = """다음 법령 텍스트를 Markdown 형식으로 변환하세요:
+FORMATTER_HUMAN = """다음 법령 텍스트를 위 규칙에 따라 정리(정규화)하세요:
 
 {text}"""
 

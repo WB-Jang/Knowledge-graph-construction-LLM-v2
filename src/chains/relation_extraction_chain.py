@@ -104,14 +104,20 @@ class RelationExtractionChain:
   }}
 ]
 빈 배열 []을 반환하지 마세요. 최소 1개 이상의 관계를 추출하세요."""),
-            ("user", """[핵심 앵커 조항 (Global Context)]
+            ("user", """[법률 정보]
+법률명: {law_title}
+
+[타 법령 참조 목록 (이 항에서 인용 — 본 법령 조항이 아니므로 트리플 subject/object로 쓰지 마세요)]
+{cross_law_refs}
+
+[핵심 앵커 조항 (Global Context)]
 {global_context}
 
-[이전 조항 (Local Context)]
+[이전 항 단위 (Local Context)]
 {local_context}
 
-[현재 분석할 조항 정보]
-- 조항 번호: {article_number}
+[현재 분석할 항(項) 정보]
+- 조항 번호: {article_number}  조 제목: {article_title}  항 번호: {hang_number}
 - 노드 타입: {entity_type}
 - 법적 강제성: {legal_force}
 - 핵심 개념: {concept}
@@ -119,6 +125,9 @@ class RelationExtractionChain:
 - 행위: {action}
 - 대상: {object}
 - 원문: {full_text}
+
+"이 법", "이 조", "이 자"와 같은 대명사는 위 법률명·조 제목·앵커 조항을 참고하여
+명확한 명칭으로 풀어서 subject/object에 사용하세요.
 
 위 정보를 바탕으로 관계 트리플을 추출하세요. 설명 없이 JSON 배열만 반환하세요.""")
         ])
@@ -168,10 +177,11 @@ class RelationExtractionChain:
     #         print(f"⚠️ 관계 추출 중 오류: {e}")
     #         return []
 
-    def extract(self, 
-                entity: LegalEntity, 
+    def extract(self,
+                entity: LegalEntity,
                 local_context: List[LegalEntity] = None,
-                global_context: List[LegalEntity] = None) -> List[GraphTriplet]:
+                global_context: List[LegalEntity] = None,
+                law_title: str = None) -> List[GraphTriplet]:
         """
         관계 추출 실행
         :param entity: 현재 타겟이 되는 조항 엔터티
@@ -179,25 +189,44 @@ class RelationExtractionChain:
         :param global_context: 총칙, 정의 등 문서 전체에서 자주 참조되는 핵심 조항들
         """
         
-        # 컨텍스트 문자열 포매팅 (엔터티의 타입과 개념을 함께 전달하여 그래프 연결점 제공)
+        # 컨텍스트 문자열 포매팅
+        circled = "①②③④⑤⑥⑦⑧⑨⑩"
+
+        def _hang_label(e):
+            if e.hang_number and e.hang_number <= 10:
+                return circled[e.hang_number - 1]
+            return f"항{e.hang_number}" if e.hang_number else ""
+
         local_context_str = "\n".join([
-            f"- [{e.article_number}] ({e.entity_type}): {e.concept} / 주체: {e.subject or '없음'}"
+            f"- [{e.article_number}{_hang_label(e)}] ({e.entity_type}): {e.concept} / 주체: {e.subject or '없음'}"
             for e in (local_context or [])
         ])
-        
+
         global_context_str = "\n".join([
-            f"- [{e.article_number}] ({e.entity_type}): {e.concept}"
+            f"- [{e.article_number}{_hang_label(e)}] ({e.entity_type}): {e.concept}"
             for e in (global_context or [])
         ])
-        
+
+        hang_number_str = (circled[entity.hang_number - 1]
+                           if entity.hang_number and entity.hang_number <= 10
+                           else (f"항{entity.hang_number}" if entity.hang_number else "없음(단독 조문)"))
+
+        cross_refs_str = ("\n".join(f"- {r}" for r in (entity.cross_law_refs or []))
+                          if hasattr(entity, 'cross_law_refs') and entity.cross_law_refs
+                          else "없음")
+
         try:
             result = self.chain.invoke({
+                "law_title": law_title or "본 법률",
+                "cross_law_refs": cross_refs_str,
                 "global_context": global_context_str or "제공되지 않음",
                 "local_context": local_context_str or "제공되지 않음",
-                "article_number": entity.article_number,
+                "article_number": entity.article_number or "N/A",
+                "article_title": entity.article_title or "N/A",
+                "hang_number": hang_number_str,
                 "entity_type": getattr(entity, 'entity_type', "N/A"),
                 "legal_force": getattr(entity, 'legal_force', "N/A"),
-                "concept": entity.concept,
+                "concept": entity.concept or "N/A",
                 "subject": entity.subject or "null",
                 "action": entity.action or "null",
                 "object": entity.object or "null",

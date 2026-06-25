@@ -12,8 +12,10 @@ from enum import Enum
 #     object: Optional[str] = Field(default=None, description="대상")
 #     full_text: str = Field(description="원문")
 class LegalEntity(BaseModel):
-    """GNN 및 관계 추출에 최적화된 법률 개체"""
-    article_number: Optional[str] = Field(default=None, description="조항 번호")
+    """GNN 및 관계 추출에 최적화된 법률 개체 — 항(項) 단위"""
+    article_number: Optional[str] = Field(default=None, description="조항 번호 (예: 제28조)")
+    hang_number: Optional[int] = Field(default=None, description="항 번호 (①=1, ②=2 …; 항 없으면 None)")
+    article_title: Optional[str] = Field(default=None, description="조 제목 (괄호 안 이름)")
     structural_index: List[Optional[int]] = Field(default=[], description="계층 인덱스 [장, 절, 조, 항]")
     entity_type: Optional[str] = Field(description="노드 타입 (ACTOR, CONCEPT, REGULATION, PENALTY 등)")
     concept: Optional[str] = Field(description="핵심 개념")
@@ -22,6 +24,7 @@ class LegalEntity(BaseModel):
     object: Optional[str] = Field(default=None, description="대상")
     legal_force: Optional[str] = Field(default=None, description="강제성 (MANDATORY, PROHIBITIVE, PERMISSIVE 등)")
     full_text: str = Field(description="원문")
+    cross_law_refs: List[str] = Field(default=[], description="이 항에서 인용하는 타 법령 조항 목록")
     # Pipeline metadata (populated during graph generation)
     pipeline_version: Optional[str] = Field(default=None)
     generator_model: Optional[str] = Field(default=None)

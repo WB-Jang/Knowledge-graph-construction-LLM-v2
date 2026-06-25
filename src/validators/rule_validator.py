@@ -2,13 +2,40 @@
 
 Applied before the LLM evaluator to catch cheap/obvious errors without LLM cost.
 All checks are O(1) per item and have zero API cost.
+
+문제 5 대응: enum에 없는 relation 값을 런타임에 수집하여 세션이 끝날 때
+data/output/unknown_relations.csv에 기록한다. 이를 검토해 주기적으로 enum을 확장한다.
 """
+import csv
+import os
 import re
+from collections import Counter
 from typing import List, Tuple
 from models.schemas import LegalEntity, GraphTriplet, RelationType
 
 # Set of valid relation strings derived from the RelationType enum
 VALID_RELATIONS = {r.value for r in RelationType}
+
+# 런타임 unknown relation 집계 (세션 내 누적)
+_UNKNOWN_RELATION_COUNTER: Counter = Counter()
+
+_UNKNOWN_RELATIONS_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    "data", "output", "unknown_relations.csv"
+)
+
+
+def flush_unknown_relations():
+    """세션 종료 시 또는 수동 호출로 미등록 relation을 CSV에 기록한다."""
+    if not _UNKNOWN_RELATION_COUNTER:
+        return
+    os.makedirs(os.path.dirname(_UNKNOWN_RELATIONS_PATH), exist_ok=True)
+    with open(_UNKNOWN_RELATIONS_PATH, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.writer(f)
+        w.writerow(["relation", "count"])
+        for rel, cnt in _UNKNOWN_RELATION_COUNTER.most_common():
+            w.writerow([rel, cnt])
+    print(f"📋 미등록 relation {len(_UNKNOWN_RELATION_COUNTER)}종 → {_UNKNOWN_RELATIONS_PATH}")
 
 # Article number format: 제N조, 제N조의N, 제N조의N제N항, etc.
 ARTICLE_NUMBER_RE = re.compile(r'^제\d+조(?:의\d+)?(?:제\d+항(?:제\d+호)?)?$')
@@ -71,9 +98,10 @@ def validate_triplet(triplet: GraphTriplet) -> RuleValidationResult:
     if triplet.subject.strip() == triplet.object.strip():
         result.errors.append(f"self-reference: subject == object == '{triplet.subject}'")
 
-    # 2. Relation must be in the defined enum
+    # 2. Relation must be in the defined enum (문제 5: unknown 집계)
     if triplet.relation not in VALID_RELATIONS:
         result.errors.append(f"unknown relation type: '{triplet.relation}'")
+        _UNKNOWN_RELATION_COUNTER[triplet.relation] += 1
 
     # 3. Subject and object must be non-empty
     if not triplet.subject.strip():
