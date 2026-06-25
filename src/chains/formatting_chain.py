@@ -37,28 +37,56 @@ FORMATTER_HUMAN = """다음 법령 텍스트를 Markdown 형식으로 변환하�
 
 {text}"""
 
-# 청크당 최대 입력 문자 수 (작은 모델이 안정적으로 처리할 수 있는 크기)
+# 청크당 최대 입력 문자 수
 FORMATTER_CHUNK_SIZE = int(os.getenv("FORMATTER_CHUNK_SIZE", "8000"))
 FORMATTER_DEBUG = os.getenv("FORMATTER_DEBUG", "false").lower() == "true"
 
 
 def _split_into_chunks(text: str, chunk_size: int) -> list:
-    """Split text into chunks of ~chunk_size chars, breaking on paragraph
-    boundaries (blank lines) so that articles are not cut mid-sentence."""
-    paragraphs = text.split("\n\n")
+    """Split text into chunks of ~chunk_size chars.
+
+    Strategy:
+    1. Try to break on double-newlines (paragraph boundaries).
+    2. If no double-newlines exist (common in raw PDF text), fall back to
+       single-newline boundaries.
+    3. If even that produces a single giant block, fall back to hard char splits
+       so very long documents are always processed in manageable pieces.
+    """
+    # 우선순위: \n\n > \n > 문자 단위
+    if "\n\n" in text:
+        sep = "\n\n"
+    elif "\n" in text:
+        sep = "\n"
+    else:
+        sep = None
+
+    if sep:
+        lines = text.split(sep)
+    else:
+        lines = [text]
+
     chunks: list = []
     buf: list = []
     buf_len = 0
-    for para in paragraphs:
-        para_len = len(para) + 2  # account for the "\n\n" separator
-        # 단일 문단이 청크 한도보다 크면 그대로 독립 청크로 둠
-        if buf and buf_len + para_len > chunk_size:
-            chunks.append("\n\n".join(buf))
+    sep_len = len(sep) if sep else 0
+
+    for line in lines:
+        line_len = len(line) + sep_len
+        # 단일 라인이 청크 한도보다 크면 독립 청크로 둠 (잘리지 않도록)
+        if buf and buf_len + line_len > chunk_size:
+            chunks.append((sep or "").join(buf))
             buf, buf_len = [], 0
-        buf.append(para)
-        buf_len += para_len
+        buf.append(line)
+        buf_len += line_len
+
     if buf:
-        chunks.append("\n\n".join(buf))
+        chunks.append((sep or "").join(buf))
+
+    # 분할이 안 됐고 여전히 한 덩어리가 한도보다 크면 문자 단위 강제 분할
+    if len(chunks) == 1 and len(chunks[0]) > chunk_size:
+        raw = chunks[0]
+        chunks = [raw[i:i + chunk_size] for i in range(0, len(raw), chunk_size)]
+
     return chunks
 
 
@@ -81,17 +109,20 @@ class FormattingChain:
             print(f"⚠️  [formatter] chunk {idx}/{total} LLM 호출 실패 ({e}); 원문 사용")
             return text
 
+        # 실패(너무 짧음)시 실제 출력 내용을 항상 표시 (원인 파악용)
+        if len(result) < len(text) * 0.8:
+            preview = result[:500].replace("\n", "\\n")
+            print(f"⚠️  [formatter] chunk {idx}/{total} 출력이 너무 짧음 "
+                  f"({len(result)} vs {len(text)} chars); 해당 청크는 원문 사용")
+            print(f"🔎 [formatter] chunk {idx} LLM 실제 출력: {preview!r}")
+            return text
+
         if FORMATTER_DEBUG:
             preview = result[:300].replace("\n", "\\n")
             print(f"🔎 [formatter-debug] chunk {idx}/{total} "
                   f"in={len(text)} out={len(result)} chars")
             print(f"🔎 [formatter-debug] chunk {idx} 출력 미리보기: {preview!r}")
 
-        # Safety: reject if the model truncated this chunk (< 80% char count)
-        if len(result) < len(text) * 0.8:
-            print(f"⚠️  [formatter] chunk {idx}/{total} 출력이 너무 짧음 "
-                  f"({len(result)} vs {len(text)} chars); 해당 청크는 원문 사용")
-            return text
         return result
 
     def format(self, text: str) -> str:
@@ -104,14 +135,18 @@ class FormattingChain:
         if len(chunks) > 1:
             print(f"🧩 [formatter] 입력 {len(text)}자를 {len(chunks)}개 청크로 분할 "
                   f"(청크당 ~{FORMATTER_CHUNK_SIZE}자)")
+        else:
+            print(f"🧩 [formatter] 입력 {len(text)}자, 청크 1개로 처리")
 
         formatted_parts = [
             self._format_chunk(chunk, i + 1, len(chunks))
             for i, chunk in enumerate(chunks)
         ]
-        combined = "\n\n".join(formatted_parts).strip()
 
-        # 전체가 비정상적으로 짧으면(모든 청크 실패) 최종 안전망으로 원문 반환
+        sep = "\n\n" if "\n\n" in text else "\n"
+        combined = sep.join(formatted_parts).strip()
+
+        # 전체가 비정상적으로 짧으면 최종 안전망으로 원문 반환
         if len(combined) < len(text) * 0.8:
             print(f"⚠️  [formatter] 전체 출력이 너무 짧음 "
                   f"({len(combined)} vs {len(text)} chars); 원문 전체 사용")

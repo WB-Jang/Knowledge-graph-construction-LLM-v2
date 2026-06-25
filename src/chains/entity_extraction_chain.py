@@ -93,31 +93,36 @@ class EntityExtractionChain:
         except Exception as e:
             error_msg = str(e)
             print(f"⚠️ 개체 추출 중 오류: {e}")
-            
-            # LLM이 리스트를 반환한 경우 처리
-            if "Input should be a valid dictionary" in error_msg and "input_type=list" in error_msg:
-                try:
-                    # 에러 메시지에서 JSON 추출 시도
-                    import json
-                    import re
-                    
-                    # completion 부분에서 JSON 추출
-                    match = re.search(r'completion \[(.*?)\]\.', error_msg, re.DOTALL)
-                    if match:
-                        json_str = '[' + match.group(1) + ']'
-                        entities_list = json.loads(json_str)
-                        
-                        if entities_list and len(entities_list) > 0:
-                            # 첫 번째 항목 사용
-                            first_entity = entities_list[0]
-                            print(f"   ℹ️ 리스트에서 첫 번째 항목 사용: {first_entity.get('article_number', 'Unknown')}")
-                            return LegalEntity(**first_entity)
-                except Exception as parse_error:
-                    print(f"   ⚠️ 리스트 파싱 실패: {parse_error}")
-            
-            # 기본값 반환
+
+            # 공통 복구: 에러 메시지에서 completion JSON을 파싱해 재구성 시도
+            import json, re
+            salvaged = None
+            # PydanticOutputParser는 에러 메시지에 completion {...} 또는 completion [{...}] 형태로 출력
+            for pattern in [r'completion (\{.*?\})\s*\.', r'completion \[(\{.*?\})\]']:
+                match = re.search(pattern, error_msg, re.DOTALL)
+                if match:
+                    try:
+                        raw = match.group(1) if pattern.startswith(r'completion (') else '{' + match.group(1) + '}'
+                        # completion [{...}] 패턴이면 배열 첫 항목 추출
+                        if pattern.endswith(r'\})\]'):
+                            items = json.loads('[' + match.group(1) + ']')
+                            data = items[0] if items else {}
+                        else:
+                            data = json.loads(match.group(1))
+                        # 유효한 필드만 남기고, 누락된 full_text 주입
+                        valid_fields = set(LegalEntity.model_fields.keys())
+                        data = {k: v for k, v in data.items() if k in valid_fields}
+                        data.setdefault('full_text', text)
+                        salvaged = LegalEntity(**data)
+                        print(f"   ♻️ 부분 JSON 복구 성공: article_number={salvaged.article_number}")
+                        return salvaged
+                    except Exception as salvage_err:
+                        print(f"   ⚠️ 부분 JSON 복구 실패: {salvage_err}")
+                    break
+
+            # 최종 폴백: 기본값으로 채운 엔티티 반환 (파이프라인 중단 방지)
             return LegalEntity(
-                article_number="Unknown",
+                article_number=None,
                 entity_type="REGULATION",
                 concept="Unknown",
                 subject=None,
