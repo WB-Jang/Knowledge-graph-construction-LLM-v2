@@ -37,14 +37,16 @@ Document 입력
   └─ [저장] Memgraph 저장 시 pipeline_version 등 버전 속성 부착
 ```
 
-**모델 역할 분리 (Model Routing)** — 모델명은 모두 설정값(env/config)으로 추상화한다.
-| 역할 | 모델(기본 가정) | 비고 |
-|------|----------------|------|
-| 전처리 Formatter | 초소형(8B급/flash) | 빠르고 저렴, 구조 정규화 전용 |
-| 생성 Generator | gemma4-26b-a4b 급 | 노드/트리플 추출 |
-| 평가 Evaluator | 70b 급 | 완전성·완결성 실시간 판정 |
+**모델 역할 분리 (Model Routing)** — **제공자는 OpenRouter 단일**, 모델 ID는 역할별 env로 지정.
+세 역할 모두 `OpenRouterClient`를 재사용하되 `model_name`만 다르게 주입한다.
+| 역할 | env 변수 | 모델(기본 가정) | 비고 |
+|------|----------|----------------|------|
+| 전처리 Formatter | `FORMATTER_MODEL` | 초소형(8B급/flash) | 빠르고 저렴, 구조 정규화 전용 |
+| 생성 Generator | `GENERATOR_MODEL` | gemma4-26b-a4b 급 | 노드/트리플 추출 |
+| 평가 Evaluator | `EVALUATOR_MODEL` | 70b 급 | 완전성·완결성 실시간 판정 |
 
-> 사용자 결정 사항: ① 전처리 LLM = **기본 경로**(정규식은 fallback) · ② 재생성 = **조항 단위** · ③ Memgraph 구분 = **버전 속성만**
+> 사용자 결정 사항: ① 제공자 = **OpenRouter 단일** · ② 전처리 LLM = **기본 경로**(정규식은 fallback) ·
+> ③ 재생성 = **조항 단위** · ④ 평가 = **전수 조사(샘플링 없음)** — 데이터 품질 최우선 · ⑤ Memgraph 구분 = **버전 속성만**
 
 ---
 
@@ -103,7 +105,8 @@ max_retries+DLQ로 무한루프를 막고, 전처리 글자수 검증으로 환�
 ## 4. 구현 로드맵 (Phased)
 
 ### Phase 0 — 인프라: 멀티모델 라우팅 + 버전 표시
-- [ ] `llm_client.py`에 역할별 모델 게터 추가: `get_formatter_llm()`, `get_generator_llm()`, `get_evaluator_llm()` (env: `FORMATTER_MODEL`, `GENERATOR_MODEL`, `EVALUATOR_MODEL`).
+- [ ] `llm_client.py`에 역할별 모델 게터 추가: `get_formatter_llm()`, `get_generator_llm()`, `get_evaluator_llm()`.
+      세 게터 모두 `OpenRouterClient(model_name=...)` 재사용, env(`FORMATTER_MODEL`/`GENERATOR_MODEL`/`EVALUATOR_MODEL`)로 모델 ID 주입.
 - [ ] `GraphTriplet`/`LegalEntity` 또는 `LegalDocument`에 파이프라인 메타 추가:
       `pipeline_version`(예: `"v2-reflection"`), `generator_model`, `evaluator_model`, `eval_score`, `retry_count`.
 - [ ] `memgraph_client.save_document`에서 위 속성을 `:Document`/`:Article`/`:RELATION`에 부착.
@@ -131,6 +134,7 @@ max_retries+DLQ로 무한루프를 막고, 전처리 글자수 검증으로 환�
 ### Phase 3 — Stage E + 재생성 루프 (조항 단위)
 - [ ] `src/chains/evaluator_chain.py` 신설(`get_evaluator_llm()`): 원문+노드+트리플 입력 →
       완전성/완결성 PASS/FAIL + 사유 + score 반환. 기존 self-confidence 대신 evaluator score를 `confidence`로 사용.
+      **평가는 전 조항 전수 수행(샘플링 없음)** — 데이터 품질 최우선.
 - [ ] `legal_graph.py`에 **조항 단위 반성 루프**:
       `생성 → 규칙검증(실패 시 재생성) → 70b 평가(FAIL 시 사유 피드백 재생성)`, `max_retries=3`.
 - [ ] 3회 초과 실패 조항은 `data/output/<...>/dead_letter_queue.csv`로 격리(원문+최종 사유).
@@ -162,7 +166,7 @@ max_retries+DLQ로 무한루프를 막고, 전처리 글자수 검증으로 환�
 | `src/graphs/legal_graph.py` | 반성 루프 + 검증강화 | Phase 3/4 |
 
 **핵심 리스크 & 완화**
-- 비용/지연 폭증 → 규칙 1차 컷오프 + 전처리/생성은 경량모델 + 평가만 70b + asyncio 병렬.
+- 비용/지연(평가 전수 수행) → 규칙 1차 컷오프로 70b 호출 전 불량 제거 + 전처리/생성은 경량모델 + asyncio 병렬 + OpenRouter `:free`/저가 모델 우선 라우팅으로 흡수. (품질 우선 결정에 따라 샘플링은 적용하지 않음)
 - 무한루프 → max_retries=3 + DLQ.
 - 전처리 원문유실/환각 → 글자수 80% assert + fallback + 단위테스트.
 - 전역 일관성 훼손 → 기존 추출어 재사용 강제 + 노드 정규화 사전.
