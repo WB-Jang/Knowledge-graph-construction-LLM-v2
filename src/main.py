@@ -27,6 +27,7 @@ def main():
     
     # 예시 법률 문서
     sample_document = LegalDocument(
+        doc_id="sample_pipa",
         title="개인정보 보호법",
         law_number="법률 제18583호",
         content="""

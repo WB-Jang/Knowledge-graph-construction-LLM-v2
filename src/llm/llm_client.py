@@ -2,11 +2,12 @@ import os
 from typing import Optional, Dict, Any, List
 from langchain_core.language_models.llms import LLM
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_groq import ChatGroq                          # pip install langchain-groq
 from langchain_openai import ChatOpenAI                      # pip install langchain-openai (OpenRouter용)
 from pydantic import Field
-import google.generativeai as genai
+
+# 참고: langchain_groq / langchain_google_genai / google-generativeai 패키지는
+# 각각 GroqClient / GeminiClient에서만 사용하므로 지연 임포트(lazy import)합니다.
+# OpenRouter만 사용할 경우 해당 패키지를 설치하지 않아도 됩니다.
 
 
 class GeminiClient:
@@ -19,6 +20,9 @@ class GeminiClient:
         temperature: float = None,
         max_tokens: int = None
     ):
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        import google.generativeai as genai
+
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
         self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.5-flash-preview-09-2025")
         self.temperature = temperature if temperature is not None else float(os.getenv("LLM_TEMPERATURE", "0.0"))
@@ -51,6 +55,8 @@ class GroqClient:
         temperature: float = None,
         max_tokens: int = None
     ):
+        from langchain_groq import ChatGroq
+
         self.api_key = api_key or os.getenv("GROQ_API_KEY")
         # 무료 Llama 70B 모델명
         self.model_name = model_name or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
