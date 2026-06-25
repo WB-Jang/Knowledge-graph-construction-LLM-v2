@@ -22,6 +22,12 @@ class LegalEntity(BaseModel):
     object: Optional[str] = Field(default=None, description="대상")
     legal_force: Optional[str] = Field(default=None, description="강제성 (MANDATORY, PROHIBITIVE, PERMISSIVE 등)")
     full_text: str = Field(description="원문")
+    # Pipeline metadata (populated during graph generation)
+    pipeline_version: Optional[str] = Field(default=None)
+    generator_model: Optional[str] = Field(default=None)
+    evaluator_model: Optional[str] = Field(default=None)
+    eval_score: Optional[float] = Field(default=None)
+    retry_count: int = Field(default=0)
 
 class RelationType(str, Enum):
     # --- 구조 및 참조 관계 ---
@@ -69,8 +75,13 @@ class GraphTriplet(BaseModel):
     article_number: str
     confidence: float
     concepts: List[str]
-    # 엣지별 생성 시점 추가
     created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
+    # Pipeline metadata
+    pipeline_version: Optional[str] = Field(default=None)
+    generator_model: Optional[str] = Field(default=None)
+    evaluator_model: Optional[str] = Field(default=None)
+    eval_score: Optional[float] = Field(default=None)
+    retry_count: int = Field(default=0)
     
 # class LegalDocument(BaseModel):
 #     """법률 문서"""
@@ -84,10 +95,13 @@ class LegalDocument(BaseModel):
     """법률 문서 최상위 컨테이너"""
     doc_id: str
     title: str
-    enforcement_date: Optional[str] = None          # ← = None 추가
-    content: str 
-    entities: List[LegalEntity] = Field(default_factory=list)    # ← 기본값 추가
-    triplets: List[GraphTriplet] = Field(default_factory=list)   # ← 기본값 추가
-    
-    # 문서 단위 생성 시점
+    law_number: Optional[str] = None
+    enforcement_date: Optional[str] = None
+    content: str
+    entities: List[LegalEntity] = Field(default_factory=list)
+    triplets: List[GraphTriplet] = Field(default_factory=list)
     created_at: str = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
+    # Document-level pipeline metadata
+    pipeline_version: str = Field(default="2.0")
+    generator_model: Optional[str] = Field(default=None)
+    evaluator_model: Optional[str] = Field(default=None)

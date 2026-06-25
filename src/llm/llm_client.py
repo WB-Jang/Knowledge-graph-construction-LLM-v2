@@ -154,6 +154,24 @@ class LlamaCppClient(LLM):
         return {"api_url": self.api_url, "model_name": self.model_name}
 
 
+def get_formatter_llm():
+    """Formatter LLM — small/fast model for Markdown normalization (mistral-nemo)"""
+    model = os.getenv("FORMATTER_MODEL", "mistralai/mistral-nemo")
+    return OpenRouterClient(model_name=model).get_llm()
+
+
+def get_generator_llm():
+    """Generator LLM — mid-size model for node+triplet extraction (gemma-4-26b)"""
+    model = os.getenv("GENERATOR_MODEL", "google/gemma-4-26b-a4b-it")
+    return OpenRouterClient(model_name=model).get_llm()
+
+
+def get_evaluator_llm():
+    """Evaluator LLM — 70b-class model for quality judgment (deepseek-v4-flash)"""
+    model = os.getenv("EVALUATOR_MODEL", "deepseek/deepseek-v4-flash")
+    return OpenRouterClient(model_name=model).get_llm()
+
+
 def get_llm(provider: str = None):
     """
     LLM 인스턴스 가져오기

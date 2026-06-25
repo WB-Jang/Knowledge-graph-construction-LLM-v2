@@ -17,7 +17,8 @@ def export_nodes_csv(entities: List[LegalEntity], filepath: str):
     fieldnames = [
         "article_number", "structural_index", "entity_type",
         "concept", "subject", "action", "object",
-        "legal_force", "full_text"
+        "legal_force", "full_text",
+        "pipeline_version", "generator_model", "evaluator_model", "eval_score", "retry_count"
     ]
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -33,12 +34,18 @@ def export_nodes_csv(entities: List[LegalEntity], filepath: str):
                 "object": e.object or "",
                 "legal_force": e.legal_force or "",
                 "full_text": e.full_text.replace("\n", " "),
+                "pipeline_version": e.pipeline_version or "",
+                "generator_model": e.generator_model or "",
+                "evaluator_model": e.evaluator_model or "",
+                "eval_score": e.eval_score if e.eval_score is not None else "",
+                "retry_count": e.retry_count,
             })
 def export_triplets_csv(triplets: List[GraphTriplet], filepath: str):
     """트리플을 CSV로 저장"""
     fieldnames = [
         "subject", "relation", "relation_category",
-        "object", "article_number", "confidence", "concepts", "created_at"
+        "object", "article_number", "confidence", "concepts", "created_at",
+        "pipeline_version", "generator_model", "evaluator_model", "eval_score", "retry_count"
     ]
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -53,13 +60,19 @@ def export_triplets_csv(triplets: List[GraphTriplet], filepath: str):
                 "confidence": t.confidence,
                 "concepts": "|".join(t.concepts),
                 "created_at": t.created_at,
+                "pipeline_version": t.pipeline_version or "",
+                "generator_model": t.generator_model or "",
+                "evaluator_model": t.evaluator_model or "",
+                "eval_score": t.eval_score if t.eval_score is not None else "",
+                "retry_count": t.retry_count,
             })
 def export_nodes_tsv(entities: List[LegalEntity], filepath: str):
     """노드를 TSV로 저장"""
     fieldnames = [
         "article_number", "structural_index", "entity_type",
         "concept", "subject", "action", "object",
-        "legal_force", "full_text"
+        "legal_force", "full_text",
+        "pipeline_version", "generator_model", "evaluator_model", "eval_score", "retry_count"
     ]
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
@@ -75,12 +88,18 @@ def export_nodes_tsv(entities: List[LegalEntity], filepath: str):
                 "object": e.object or "",
                 "legal_force": e.legal_force or "",
                 "full_text": e.full_text.replace("\n", " "),
+                "pipeline_version": e.pipeline_version or "",
+                "generator_model": e.generator_model or "",
+                "evaluator_model": e.evaluator_model or "",
+                "eval_score": e.eval_score if e.eval_score is not None else "",
+                "retry_count": e.retry_count,
             })
 def export_triplets_tsv(triplets: List[GraphTriplet], filepath: str):
     """트리플을 TSV로 저장"""
     fieldnames = [
         "subject", "relation", "relation_category",
-        "object", "article_number", "confidence", "concepts", "created_at"
+        "object", "article_number", "confidence", "concepts", "created_at",
+        "pipeline_version", "generator_model", "evaluator_model", "eval_score", "retry_count"
     ]
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter="\t")
@@ -95,6 +114,11 @@ def export_triplets_tsv(triplets: List[GraphTriplet], filepath: str):
                 "confidence": t.confidence,
                 "concepts": "|".join(t.concepts),
                 "created_at": t.created_at,
+                "pipeline_version": t.pipeline_version or "",
+                "generator_model": t.generator_model or "",
+                "evaluator_model": t.evaluator_model or "",
+                "eval_score": t.eval_score if t.eval_score is not None else "",
+                "retry_count": t.retry_count,
             })
 def export_summary_txt(document: LegalDocument, filepath: str):
     """노드+트리플 요약을 TXT로 저장"""

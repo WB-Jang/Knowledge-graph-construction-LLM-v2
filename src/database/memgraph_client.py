@@ -48,19 +48,23 @@ class MemgraphClient:
     def save_document(self, document: LegalDocument):
         """법률 문서를 Memgraph에 저장"""
         with self.driver.session() as session:
-            model_nm=os.getenv('OPENROUTER_MODEL')
-
             # 1. 문서 노드 생성 (doc_id 기준 MERGE로 중복 방지)
             session.run("""
                 MERGE (d:Document {doc_id: $doc_id})
                 SET d.title            = $title,
                     d.enforcement_date = $enforcement_date,
-                    d.created_at       = $created_at
+                    d.created_at       = $created_at,
+                    d.pipeline_version = $pipeline_version,
+                    d.generator_model  = $generator_model,
+                    d.evaluator_model  = $evaluator_model
             """,
                 doc_id=document.doc_id,
                 title=document.title,
                 enforcement_date=document.enforcement_date,
                 created_at=document.created_at,
+                pipeline_version=document.pipeline_version,
+                generator_model=document.generator_model,
+                evaluator_model=document.evaluator_model,
             )
 
             # 2. Article 노드 생성 및 Document-[:CONTAINS]->Article 관계
@@ -76,20 +80,28 @@ class MemgraphClient:
                         a.object           = $object,
                         a.legal_force      = $legal_force,
                         a.full_text        = $full_text,
-                        a.model_nm         = $model_nm    
+                        a.pipeline_version = $pipeline_version,
+                        a.generator_model  = $generator_model,
+                        a.evaluator_model  = $evaluator_model,
+                        a.eval_score       = $eval_score,
+                        a.retry_count      = $retry_count
                     MERGE (d)-[:CONTAINS]->(a)
                 """,
                     doc_id=document.doc_id,
                     number=entity.article_number,
-                    entity_type=entity.entity_type,                         # ← 추가
-                    structural_index=entity.structural_index,               # ← 추가 (List[int])
+                    entity_type=entity.entity_type,
+                    structural_index=entity.structural_index,
                     concept=entity.concept,
                     subject=entity.subject,
                     action=entity.action,
                     object=entity.object,
-                    legal_force=entity.legal_force,                         # ← 추가
+                    legal_force=entity.legal_force,
                     full_text=entity.full_text,
-                    model_nm=model_nm,
+                    pipeline_version=entity.pipeline_version or document.pipeline_version,
+                    generator_model=entity.generator_model or document.generator_model,
+                    evaluator_model=entity.evaluator_model or document.evaluator_model,
+                    eval_score=entity.eval_score,
+                    retry_count=entity.retry_count,
                 )
 
             # 3. 트리플 관계 생성
@@ -103,7 +115,12 @@ class MemgraphClient:
                         confidence:        $confidence,
                         article_number:    $article_number,
                         concepts:          $concepts,
-                        created_at:        $created_at
+                        created_at:        $created_at,
+                        pipeline_version:  $pipeline_version,
+                        generator_model:   $generator_model,
+                        evaluator_model:   $evaluator_model,
+                        eval_score:        $eval_score,
+                        retry_count:       $retry_count
                     }]->(o)
                 """,
                     subject=triplet.subject,
@@ -114,6 +131,11 @@ class MemgraphClient:
                     article_number=triplet.article_number,
                     concepts=triplet.concepts,
                     created_at=triplet.created_at,
+                    pipeline_version=triplet.pipeline_version or document.pipeline_version,
+                    generator_model=triplet.generator_model or document.generator_model,
+                    evaluator_model=triplet.evaluator_model or document.evaluator_model,
+                    eval_score=triplet.eval_score,
+                    retry_count=triplet.retry_count,
                 )
 
         print(f"✅ '{document.title}' 지식 그래프가 Memgraph에 저장되었습니다.")
