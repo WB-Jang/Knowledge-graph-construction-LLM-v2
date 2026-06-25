@@ -172,12 +172,37 @@ def split_markdown_articles(text: str) -> Dict[str, List[Dict]]:
 # 인지하도록 한다. structural_index = [장, 절, 조, 항].
 # ──────────────────────────────────────────────────────────────────────────────
 
-# 타 법령 조항 참조 패턴 — 「법령명」 제N조[제M항][제M호] (HGT 학습용 핵심 특성)
-# 본 법령 조항이 아니므로 경계로 인식하면 안 되고, cross_law_refs로 별도 기록한다.
+# 타 법령 참조 패턴 — 「법령명」(+선택적 제N조[제M항][제M호]) (HGT 학습용 핵심 특성)
+# 조문번호 없이 법령명만 인용하는 경우(예: 「공공기관의 운영에 관한 법률」에 따른 공공기관)도
+# 포착한다. 본 법령 조항이 아니므로 경계로 인식하면 안 되고 cross_law_refs로 별도 기록한다.
+_ARTICLE_SUFFIX = r'(?:\s*제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?)?'
 _CROSS_LAW_REF_RE = re.compile(
-    r'(?:「[^」]+」|『[^』]+』|〔[^〕]+〕|같은\s*법|동법|해당\s*법)'
-    r'\s*제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?'
+    r'(?:「[^」]+」|『[^』]+』|〔[^〕]+〕)' + _ARTICLE_SUFFIX + r'|'
+    r'(?:같은\s*법|동법|해당\s*법)\s*제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?'
 )
+
+# cross_law_ref 문자열 → {law_name, article} 분해용
+_CROSS_LAW_PARSE_RE = re.compile(
+    r'(?:「([^」]+)」|『([^』]+)』|〔([^〕]+)〕|(같은\s*법|동법|해당\s*법))'
+    r'(\s*제\s*\d+\s*조(?:의\s*\d+)?(?:제\s*\d+\s*항)?(?:제\s*\d+\s*호)?)?'
+)
+
+
+def parse_cross_law_ref(ref: str) -> Dict[str, Optional[str]]:
+    """'「금융지주회사법」 제2조제1항제5호' → {'law_name':'금융지주회사법','article':'제2조제1항제5호'}.
+
+    조문번호가 없으면 article=None. 그래프에서 (법령, 조항) 노드를 만들 때 사용한다.
+    """
+    m = _CROSS_LAW_PARSE_RE.search(ref)
+    if not m:
+        return {"law_name": None, "article": None, "raw": ref.strip()}
+    law = m.group(1) or m.group(2) or m.group(3) or m.group(4)
+    article = re.sub(r'\s+', '', m.group(5)) if m.group(5) else None
+    return {
+        "law_name": re.sub(r'\s+', ' ', law).strip() if law else None,
+        "article": article,
+        "raw": re.sub(r'\s+', ' ', ref).strip(),
+    }
 
 # 본 법령 내부 조항 상호참조 — 「법명」 없이 등장하는 제N조[제M항][제M호]
 # (예: "제16조제1항부터 제3항까지", "제12조제1항 및 같은 조 제2항")
@@ -187,10 +212,30 @@ _INTRA_LAW_REF_RE = re.compile(
 )
 
 
+_RELATIVE_LAW = ("같은", "동법", "해당")
+
+
 def extract_cross_law_refs(text: str) -> List[str]:
-    """타 법령(「법명」 명시) 조항 참조 목록. HGT가 다법령 통합 추론을 학습하는 핵심 특성."""
-    return [re.sub(r'\s+', ' ', m.group(0)).strip()
-            for m in _CROSS_LAW_REF_RE.finditer(text)]
+    """타 법령 참조 목록. HGT가 다법령 통합 추론을 학습하는 핵심 특성.
+
+    '같은 법'/'동법'/'해당 법'은 직전에 명시된 「법령명」으로 해소해 반환한다
+    (예: '...자본시장법...같은 법 제9조제17항' → '「자본시장과 금융투자업에 관한 법률」 제9조제17항').
+    """
+    results: List[str] = []
+    last_law: Optional[str] = None
+    for m in _CROSS_LAW_REF_RE.finditer(text):
+        raw = re.sub(r'\s+', ' ', m.group(0)).strip()
+        parsed = parse_cross_law_ref(raw)
+        law = parsed["law_name"]
+        is_relative = bool(law) and any(law.startswith(p) for p in _RELATIVE_LAW)
+        if is_relative and last_law:
+            article = parsed["article"] or ""
+            results.append(f"「{last_law}」 {article}".strip())
+        else:
+            if law and not is_relative:
+                last_law = law
+            results.append(raw)
+    return results
 
 
 def extract_intra_law_refs(text: str) -> List[str]:

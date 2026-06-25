@@ -2,6 +2,7 @@ import os
 from typing import List, Dict, Any
 from neo4j import GraphDatabase
 from models.schemas import LegalDocument
+from utils.text_processor import parse_cross_law_ref
 
 
 class MemgraphClient:
@@ -38,6 +39,8 @@ class MemgraphClient:
                 "CREATE INDEX ON :Article(number)",
                 "CREATE INDEX ON :Article(entity_type)",  # ← 추가: 타입별 조회 최적화
                 "CREATE INDEX ON :Entity(name)",
+                "CREATE INDEX ON :ExternalLaw(name)",
+                "CREATE INDEX ON :ExternalArticle(law_name)",
             ]:
                 try:
                     session.run(query)
@@ -110,6 +113,38 @@ class MemgraphClient:
                     eval_score=entity.eval_score,
                     retry_count=entity.retry_count,
                 )
+
+                # 2-1. 타 법령 참조를 별도 노드+엣지로 연결 (HGT 다법령 추론용)
+                # (:Article)-[:REFERS_TO_EXTERNAL]->(:ExternalArticle)-[:OF_LAW]->(:ExternalLaw)
+                # 조문번호가 없으면 (:Article)-[:REFERS_TO_EXTERNAL_LAW]->(:ExternalLaw)
+                for ref in entity.cross_law_refs:
+                    parsed = parse_cross_law_ref(ref)
+                    law_name = parsed["law_name"]
+                    article = parsed["article"]
+                    if not law_name:
+                        continue
+                    if article:
+                        session.run("""
+                            MATCH (a:Article {number: $number, hang: $hang, doc_id: $doc_id})
+                            MERGE (law:ExternalLaw {name: $law_name})
+                            MERGE (ext:ExternalArticle {law_name: $law_name, article: $article})
+                            MERGE (ext)-[:OF_LAW]->(law)
+                            MERGE (a)-[:REFERS_TO_EXTERNAL {raw: $raw}]->(ext)
+                        """,
+                            number=entity.article_number,
+                            hang=entity.hang_number if entity.hang_number is not None else 0,
+                            doc_id=document.doc_id,
+                            law_name=law_name, article=article, raw=parsed["raw"])
+                    else:
+                        session.run("""
+                            MATCH (a:Article {number: $number, hang: $hang, doc_id: $doc_id})
+                            MERGE (law:ExternalLaw {name: $law_name})
+                            MERGE (a)-[:REFERS_TO_EXTERNAL_LAW {raw: $raw}]->(law)
+                        """,
+                            number=entity.article_number,
+                            hang=entity.hang_number if entity.hang_number is not None else 0,
+                            doc_id=document.doc_id,
+                            law_name=law_name, raw=parsed["raw"])
 
             # 3. 트리플 관계 생성
             for triplet in document.triplets:
