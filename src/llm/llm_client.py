@@ -102,6 +102,11 @@ class OpenRouterClient:
         if provider_order:
             provider_routing["order"] = provider_order
             provider_routing["allow_fallbacks"] = allow_fallbacks
+        # 요청 타임아웃 (초). 미설정 시 120초. 연결이 stall될 때 무한 대기 방지.
+        self.timeout = int(os.getenv("LLM_TIMEOUT", "120"))
+        # 재시도 횟수 (네트워크 오류 등)
+        self.max_retries = int(os.getenv("LLM_MAX_RETRIES", "2"))
+
         # OpenRouter는 OpenAI 호환 엔드포인트 사용
         self.llm = ChatOpenAI(
             model=self.model_name,
@@ -109,6 +114,8 @@ class OpenRouterClient:
             base_url="https://openrouter.ai/api/v1",
             temperature=self.temperature,
             max_tokens=self.max_tokens,
+            timeout=self.timeout,
+            max_retries=self.max_retries,
             default_headers={
                 "HTTP-Referer": "https://github.com/WB-Jang/Knowledge-graph-construction-LLM-v2",
             },
@@ -169,7 +176,9 @@ def get_formatter_llm(max_tokens: int = None):
     """
     model = os.getenv("FORMATTER_MODEL", "mistralai/mistral-nemo")
     if max_tokens is None:
-        max_tokens = int(os.getenv("FORMATTER_MAX_TOKENS", "16000"))
+        # 청크(기본 8000자) 출력에 충분하면서 반복 폭주를 제한하는 값.
+        # 너무 크면(예: 16000) 모델이 반복 루프에 빠질 때 cap까지 생성해 매우 느려짐.
+        max_tokens = int(os.getenv("FORMATTER_MAX_TOKENS", "8000"))
     return OpenRouterClient(model_name=model, max_tokens=max_tokens).get_llm()
 
 

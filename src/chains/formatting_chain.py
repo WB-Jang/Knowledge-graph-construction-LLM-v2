@@ -106,6 +106,7 @@ class FormattingChain:
 
     def _format_chunk(self, text: str, idx: int, total: int) -> str:
         """Format a single chunk; fall back to raw text if it looks truncated."""
+        print(f"  🧩 [formatter] chunk {idx}/{total} 포맷팅 요청 중... ({len(text)}자)")
         try:
             result = self.chain.invoke({"text": text}).strip()
         except Exception as e:
