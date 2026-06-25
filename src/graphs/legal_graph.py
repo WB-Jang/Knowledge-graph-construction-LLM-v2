@@ -22,6 +22,8 @@ from validators.rule_validator import validate_article_triplets
 from utils.text_processor import split_markdown_articles, split_and_categorize_articles
 
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
+# 의미 유사도 기반 동적 글로벌 컨텍스트 (옵션, 기본 비활성화)
+ENABLE_SEMANTIC_GLOBAL_CONTEXT = os.getenv("ENABLE_SEMANTIC_GLOBAL_CONTEXT", "false").lower() == "true"
 DLQ_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
     "data", "output", "dead_letter_queue.csv"
@@ -68,6 +70,15 @@ class LegalKnowledgeGraphWorkflow:
         self.pipeline_version = os.getenv("PIPELINE_VERSION", "2.0")
         self.generator_model = os.getenv("GENERATOR_MODEL", "google/gemma-4-26b-a4b-it")
         self.evaluator_model = os.getenv("EVALUATOR_MODEL", "deepseek/deepseek-v4-flash")
+
+        # 옵션: 의미 유사도 기반 동적 글로벌 컨텍스트 선택기 (기본 비활성화)
+        self.semantic_selector = None
+        if ENABLE_SEMANTIC_GLOBAL_CONTEXT:
+            from utils.semantic_context import SemanticContextSelector
+            self.semantic_selector = SemanticContextSelector()
+            print(f"🧭 의미 유사도 글로벌 컨텍스트 활성화 (method={self.semantic_selector.method}, "
+                  f"top_k={self.semantic_selector.top_k})")
+
         self.workflow = self._build_workflow()
 
     def _build_workflow(self) -> StateGraph:
@@ -161,6 +172,22 @@ class LegalKnowledgeGraphWorkflow:
 
         for entity in entities:
             local_context = accumulated_entities[-3:]
+
+            # 정적 글로벌 컨텍스트(앞 3개 조항) + (옵션) 의미 유사도 기반 동적 컨텍스트
+            effective_global = global_entities
+            if self.semantic_selector is not None:
+                # 후보 풀: 현재 조항을 제외한 나머지 조항 전체
+                candidates = [e for e in entities if e is not entity]
+                semantic_picks = self.semantic_selector.select(entity, candidates)
+                # 정적 컨텍스트와 합치되 article_number 기준 중복 제거
+                merged = list(global_entities)
+                seen = {e.article_number for e in merged}
+                for pick in semantic_picks:
+                    if pick.article_number not in seen:
+                        merged.append(pick)
+                        seen.add(pick.article_number)
+                effective_global = merged
+
             feedback: Optional[str] = None
             accepted = False
 
@@ -178,7 +205,7 @@ class LegalKnowledgeGraphWorkflow:
                 raw_triplets = self.relation_chain.extract(
                     entity=entity_for_extract,
                     local_context=local_context,
-                    global_context=global_entities,
+                    global_context=effective_global,
                 )
 
                 # Attach metadata

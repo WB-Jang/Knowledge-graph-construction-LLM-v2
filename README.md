@@ -122,7 +122,19 @@ EVALUATOR_MODEL=deepseek/deepseek-v4-flash
 # (선택) 반영 루프 파라미터
 MAX_RETRIES=3
 EVAL_PASS_THRESHOLD=0.7
+
+# (선택) 의미 유사도 기반 동적 글로벌 컨텍스트 — 기본 비활성화
+ENABLE_SEMANTIC_GLOBAL_CONTEXT=false
 ```
+
+> 🧭 **의미 유사도 글로벌 컨텍스트 (옵션)**
+> `ENABLE_SEMANTIC_GLOBAL_CONTEXT=true`로 켜면, 각 조항의 관계를 추출할 때
+> 정적인 앞 3개 조항뿐 아니라 **현재 조항과 의미적으로 유사한 다른 조항**을
+> 동적으로 골라 글로벌 컨텍스트(참조 앵커)로 함께 주입합니다.
+> 기본 유사도 방식은 추가 의존성이 없는 `lexical`(문자 n-gram Jaccard)이며,
+> `SEMANTIC_SIMILARITY_METHOD=embedding`으로 임베딩 기반(코사인 유사도)으로
+> 바꿀 수 있습니다(이 경우 `langchain-openai`와 임베딩 API 키 필요).
+> 끄면(기본) 동작도, 추가 의존성도 없습니다.
 
 > ℹ️ Memgraph가 없어도 실행됩니다. 저장 단계는 건너뛰거나(프롬프트에서 N 선택)
 > 실패해도 경고만 출력하며, 결과는 항상 `data/output/`에 CSV/TSV/TXT로 저장됩니다.
