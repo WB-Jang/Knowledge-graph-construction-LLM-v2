@@ -40,6 +40,9 @@ FORMATTER_HUMAN = """다음 법령 텍스트를 Markdown 형식으로 변환하�
 # 청크당 최대 입력 문자 수
 FORMATTER_CHUNK_SIZE = int(os.getenv("FORMATTER_CHUNK_SIZE", "8000"))
 FORMATTER_DEBUG = os.getenv("FORMATTER_DEBUG", "false").lower() == "true"
+# 출력 길이 안전 범위 (입력 대비 비율). 하한 미만=절삭, 상한 초과=반복/환각으로 간주
+FORMATTER_MIN_RATIO = float(os.getenv("FORMATTER_MIN_RATIO", "0.8"))
+FORMATTER_MAX_RATIO = float(os.getenv("FORMATTER_MAX_RATIO", "1.3"))
 
 
 def _split_into_chunks(text: str, chunk_size: int) -> list:
@@ -110,11 +113,20 @@ class FormattingChain:
             return text
 
         # 실패(너무 짧음)시 실제 출력 내용을 항상 표시 (원인 파악용)
-        if len(result) < len(text) * 0.8:
+        if len(result) < len(text) * FORMATTER_MIN_RATIO:
             preview = result[:500].replace("\n", "\\n")
             print(f"⚠️  [formatter] chunk {idx}/{total} 출력이 너무 짧음 "
                   f"({len(result)} vs {len(text)} chars); 해당 청크는 원문 사용")
             print(f"🔎 [formatter] chunk {idx} LLM 실제 출력: {preview!r}")
+            return text
+
+        # 출력이 비정상적으로 김(반복/환각): 원문 사용으로 중복 노드 생성 방지
+        if len(result) > len(text) * FORMATTER_MAX_RATIO:
+            tail = result[-500:].replace("\n", "\\n")
+            print(f"⚠️  [formatter] chunk {idx}/{total} 출력이 비정상적으로 김 "
+                  f"({len(result)} vs {len(text)} chars, "
+                  f"비율 {len(result)/max(len(text),1):.2f}x); 반복/환각 의심 → 원문 사용")
+            print(f"🔎 [formatter] chunk {idx} 출력 끝부분: {tail!r}")
             return text
 
         if FORMATTER_DEBUG:
