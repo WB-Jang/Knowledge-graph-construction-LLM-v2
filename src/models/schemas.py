@@ -60,6 +60,13 @@ class RelationType(str, Enum):
     # --- 보고 및 협력 관계 ---
     REPORTS_TO = "보고함"          # 결과·의견 등을 기관에 보고
     COOPERATES_WITH = "협조함"     # 업무 협조·지원 의무
+    DELIBERATES_AND_RESOLVES = "심의·의결함"  # 이사회 등의 심의·의결 (추가: 49회)
+    RECOMMENDS = "추천함"          # 추천 또는 제안 (추가: 7회)
+    COMPLIES_WITH = "준수함"       # 준수 또는 따름 (추가: 5회)
+    NOTIFIES = "통보함"            # 통보 또는 고지 (추가: 4회)
+    INVESTIGATES = "조사함"        # 조사 또는 확인 (추가: 3회)
+    RESTRICTS = "제한함"           # 범위 또는 권한 제한 (추가: 3회)
+    VIOLATES = "위반함"            # 위반 또는 불준수 (추가: 1회, 의미상 중요)
 
     # --- 제재 및 책임 관계 ---
     PUNISHMENT_FOR = "처벌대상임"    # 형벌(징역, 벌금) 대상
@@ -70,6 +77,9 @@ class RelationType(str, Enum):
     HAS_AUTHORITY = "권한을가짐"    # 행정 주체의 직무 범위
     APPLIES_TO = "적용대상임"       # 법 적용을 받는 주체/대상 명시
     FOLLOWS_PROCEDURE = "절차를따름" # 신고, 승인, 협의 등 행정 절차 연결
+    SATISFIES = "충족함"           # 요건 충족 또는 만족 (추가: 3회)
+    IS_CONDITION_FOR = "조건임"     # 특정 행위의 조건 (추가: 3회)
+    PRESCRIBES = "정함"            # 정함 또는 규정 (추가: 3회)
 
 
 # class GraphTriplet(BaseModel):
